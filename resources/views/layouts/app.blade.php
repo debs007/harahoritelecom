@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'MobileShop') — Best Phones Online</title>
+    <title>@yield('title', 'Harahori Telecom') — Best Phones Online</title>
     <meta name="description" content="@yield('meta_description', 'Shop the latest smartphones at the best prices in India.')">
 
     <!-- Tailwind CSS CDN -->
@@ -68,7 +68,7 @@
                 <div class="w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-xl flex items-center justify-center">
                     <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2H7zm5 17a1 1 0 110-2 1 1 0 010 2z"/></svg>
                 </div>
-                <span class="text-xl font-black text-gray-900">Mobile<span class="text-violet-600">Shop</span></span>
+                <span class="text-xl font-black text-gray-900">Harahori<span class="text-violet-600">Telecom</span></span>
             </a>
 
             <!-- Desktop Search -->

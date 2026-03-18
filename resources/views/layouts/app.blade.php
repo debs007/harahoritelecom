@@ -200,7 +200,7 @@
                     <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
                         <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2H7zm5 17a1 1 0 110-2 1 1 0 010 2z"/></svg>
                     </div>
-                    <span class="text-white font-black text-lg">MobileShop</span>
+                    <span class="text-white font-black text-lg">Harahori Telecom</span>
                 </div>
                 <p class="text-sm leading-relaxed">Your trusted destination for the latest smartphones. Genuine products, fast delivery, easy returns.</p>
             </div>
@@ -230,7 +230,7 @@
             </div>
         </div>
         <div class="border-t border-gray-800 pt-6 text-center text-sm text-gray-600">
-            &copy; {{ date('Y') }} MobileShop. Built with Laravel 10 + Tailwind CSS.
+            &copy; {{ date('Y') }} Harahori Telecom. All right reserved.
         </div>
     </div>
 </footer>

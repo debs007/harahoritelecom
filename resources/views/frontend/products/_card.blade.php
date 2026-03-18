@@ -28,7 +28,7 @@
 
         {{-- Wishlist --}}
         @auth
-        <button onclick="toggleWishlist(this, {{ $product->id }})"
+        <button onclick="toggleWishlist(this, '{{ $product->slug }}')"
                 class="absolute top-2 right-2 w-8 h-8 bg-white rounded-full shadow-md
                        flex items-center justify-center text-gray-400 hover:text-red-500
                        transition opacity-0 group-hover:opacity-100">

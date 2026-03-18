@@ -43,7 +43,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::resource('coupons', CouponAdminController::class);
 
     // Shipping zones
-    Route::resource('shipping', ShippingAdminController::class);
+    Route::resource('shipping', ShippingAdminController::class)->parameters(['shipping' => 'shipping']);
 
     // Reviews
     Route::get('reviews',                   [ReviewAdminController::class, 'index'])->name('reviews.index');

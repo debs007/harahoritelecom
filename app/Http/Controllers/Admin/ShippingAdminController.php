@@ -21,45 +21,85 @@ class ShippingAdminController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $request->validate([
             'name'           => 'required|string|max:100',
-            'states'         => 'required|array|min:1',
-            'states.*'       => 'string',
+            'states_raw'     => 'required|string',
             'rate'           => 'required|numeric|min:0',
             'free_above'     => 'nullable|numeric|min:0',
             'estimated_days' => 'required|integer|min:1',
-            'is_active'      => 'nullable|boolean',
+            'is_active'      => 'nullable',
         ]);
 
-        ShippingZone::create($data);
-        return redirect()->route('admin.shipping.index')->with('success', 'Shipping zone created.');
+        $states = $this->parseStates($request->states_raw);
+
+        ShippingZone::create([
+            'name'           => $request->name,
+            'states'         => $states,
+            'rate'           => $request->rate,
+            'free_above'     => $request->free_above ?: null,
+            'estimated_days' => $request->estimated_days,
+            'is_active'      => $request->has('is_active') ? true : false,
+        ]);
+
+        return redirect()->route('admin.shipping.index')
+            ->with('success', 'Shipping zone created successfully.');
     }
 
-    public function edit(ShippingZone $shipping)
+    public function show($id)
     {
+        $shipping = ShippingZone::findOrFail($id);
         return view('admin.shipping.edit', compact('shipping'));
     }
 
-    public function update(Request $request, ShippingZone $shipping)
+    public function edit($id)
     {
-        $data = $request->validate([
+        $shipping = ShippingZone::findOrFail($id);
+        return view('admin.shipping.edit', compact('shipping'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $shipping = ShippingZone::findOrFail($id);
+
+        $request->validate([
             'name'           => 'required|string|max:100',
-            'states'         => 'required|array|min:1',
+            'states_raw'     => 'required|string',
             'rate'           => 'required|numeric|min:0',
             'free_above'     => 'nullable|numeric|min:0',
             'estimated_days' => 'required|integer|min:1',
-            'is_active'      => 'nullable|boolean',
+            'is_active'      => 'nullable',
         ]);
 
-        $shipping->update($data);
-        return redirect()->route('admin.shipping.index')->with('success', 'Shipping zone updated.');
+        $states = $this->parseStates($request->states_raw);
+
+        $shipping->update([
+            'name'           => $request->name,
+            'states'         => $states,
+            'rate'           => $request->rate,
+            'free_above'     => $request->free_above ?: null,
+            'estimated_days' => $request->estimated_days,
+            'is_active'      => $request->has('is_active') ? true : false,
+        ]);
+
+        return redirect()->route('admin.shipping.index')
+            ->with('success', 'Shipping zone updated successfully.');
     }
 
-    public function destroy(ShippingZone $shipping)
+    public function destroy($id)
     {
+        $shipping = ShippingZone::findOrFail($id);
         $shipping->delete();
         return back()->with('success', 'Shipping zone deleted.');
     }
 
-    public function show(ShippingZone $shipping) { return $this->edit($shipping); }
+    /**
+     * Parse a textarea of states (newline or comma separated) into an array.
+     */
+    private function parseStates(string $raw): array
+    {
+        $states = preg_split('/[\n\r,]+/', $raw);
+        $states = array_map('trim', $states);
+        $states = array_filter($states, fn($s) => $s !== '');
+        return array_values($states);
+    }
 }

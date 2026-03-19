@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductImage extends Model
 {
+    protected $table = "product_images";
     protected $fillable = ['product_id', 'image', 'alt', 'sort_order', 'is_primary'];
 
     protected $casts = ['is_primary' => 'boolean'];

@@ -20,20 +20,15 @@ class ProductAdminController extends Controller
         $query = Product::with(['category', 'brand'])->withTrashed();
 
         if ($request->search) {
-            $query->where('name', 'like', "%{$request->search}%")
+            $query->where(function($q) use ($request) {
+                $q->where('name', 'like', "%{$request->search}%")
                   ->orWhere('sku', 'like', "%{$request->search}%");
+            });
         }
-        if ($request->category) {
-            $query->where('category_id', $request->category);
-        }
-        if ($request->brand) {
-            $query->where('brand_id', $request->brand);
-        }
-        if ($request->status === 'active') {
-            $query->where('is_active', true);
-        } elseif ($request->status === 'inactive') {
-            $query->where('is_active', false);
-        }
+        if ($request->category) $query->where('category_id', $request->category);
+        if ($request->brand)    $query->where('brand_id', $request->brand);
+        if ($request->status === 'active')   $query->where('is_active', true);
+        if ($request->status === 'inactive') $query->where('is_active', false);
 
         $products   = $query->latest()->paginate(20);
         $categories = Category::all();
@@ -55,24 +50,17 @@ class ProductAdminController extends Controller
         $data['slug'] = Str::slug($request->name) . '-' . uniqid();
 
         if ($request->hasFile('thumbnail')) {
-            $data['thumbnail'] = $this->saveImage($request->file('thumbnail'), 'products/thumbnails', 400, 400);
+            $data['thumbnail'] = $this->saveImage(
+                $request->file('thumbnail'), 'products/thumbnails', 400, 400
+            );
         }
 
         $product = Product::create($data);
 
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $i => $image) {
-                ProductImage::create([
-                    'product_id' => $product->id,
-                    'image'      => $this->saveImage($image, 'products', 800, 800),
-                    'sort_order' => $i,
-                    'is_primary' => $i === 0,
-                ]);
-            }
-        }
+        // Handle color-tagged images
+        $this->saveColorImages($request, $product);
 
-        return redirect()
-            ->route('admin.products.index')
+        return redirect()->route('admin.products.index')
             ->with('success', 'Product "' . $product->name . '" created successfully!');
     }
 
@@ -89,14 +77,18 @@ class ProductAdminController extends Controller
         $data = $this->validateProduct($request, $product->id);
 
         if ($request->hasFile('thumbnail')) {
-            // Delete old thumbnail
             if ($product->thumbnail) {
                 Storage::disk('public')->delete($product->thumbnail);
             }
-            $data['thumbnail'] = $this->saveImage($request->file('thumbnail'), 'products/thumbnails', 400, 400);
+            $data['thumbnail'] = $this->saveImage(
+                $request->file('thumbnail'), 'products/thumbnails', 400, 400
+            );
         }
 
         $product->update($data);
+
+        // Handle color-tagged images
+        $this->saveColorImages($request, $product);
 
         return back()->with('success', 'Product updated successfully!');
     }
@@ -104,18 +96,21 @@ class ProductAdminController extends Controller
     public function destroy(Product $product)
     {
         $product->delete();
-        return back()->with('success', 'Product deleted (soft delete).');
+        return back()->with('success', 'Product deleted.');
     }
 
     public function toggle(Product $product)
     {
-        $product->update(['is_active' => ! $product->is_active]);
+        $product->update(['is_active' => !$product->is_active]);
         return response()->json(['active' => $product->is_active]);
     }
 
     public function uploadImages(Request $request, Product $product)
     {
-        $request->validate(['images.*' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120']);
+        $request->validate([
+            'images.*' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120',
+            'color'    => 'nullable|string|max:50',
+        ]);
 
         $count = $product->images()->count();
         $saved = [];
@@ -124,13 +119,15 @@ class ProductAdminController extends Controller
             $img = ProductImage::create([
                 'product_id' => $product->id,
                 'image'      => $this->saveImage($image, 'products', 800, 800),
+                'color'      => $request->color ?: null,
                 'sort_order' => $count + $i,
                 'is_primary' => $count === 0 && $i === 0,
             ]);
             $saved[] = [
-                'id'       => $img->id,
-                'url'      => Storage::url($img->image),
-                'primary'  => $img->is_primary,
+                'id'      => $img->id,
+                'url'     => Storage::url($img->image),
+                'color'   => $img->color,
+                'primary' => $img->is_primary,
             ];
         }
 
@@ -154,7 +151,6 @@ class ProductAdminController extends Controller
             'stock'   => 'required|integer|min:0',
             'sku'     => 'required|string|unique:product_variants,sku',
         ]);
-
         $product->variants()->create($data);
         return back()->with('success', 'Variant added.');
     }
@@ -165,7 +161,55 @@ class ProductAdminController extends Controller
         return back()->with('success', 'Variant deleted.');
     }
 
-    // ── Helpers ──────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    /**
+     * Save color-tagged image groups from the request.
+     * Expects:
+     *   color_images[0][color]    = 'Black'
+     *   color_images[0][files][]  = <uploaded files>
+     *   general_images[]          = <uploaded files with no color>
+     */
+    private function saveColorImages(Request $request, Product $product): void
+    {
+        $count = $product->images()->count();
+
+        // General images (no color tag)
+        if ($request->hasFile('general_images')) {
+            foreach ($request->file('general_images') as $i => $file) {
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'image'      => $this->saveImage($file, 'products', 800, 800),
+                    'color'      => null,
+                    'sort_order' => $count + $i,
+                    'is_primary' => $count === 0 && $i === 0,
+                ]);
+                $count++;
+            }
+        }
+
+        // Color-tagged image groups
+        if ($request->has('color_images')) {
+            foreach ($request->color_images as $group) {
+                $color = $group['color'] ?? null;
+                $files = $group['files'] ?? [];
+
+                if (empty($files) || empty($color)) continue;
+
+                foreach ($files as $i => $file) {
+                    if (!$file->isValid()) continue;
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image'      => $this->saveImage($file, 'products', 800, 800),
+                        'color'      => $color,
+                        'sort_order' => $count + $i,
+                        'is_primary' => false,
+                    ]);
+                    $count++;
+                }
+            }
+        }
+    }
 
     private function validateProduct(Request $request, ?int $ignoreId = null): array
     {
@@ -191,21 +235,34 @@ class ProductAdminController extends Controller
             'network'           => 'nullable|string|max:50',
             'colors'            => 'nullable|array',
             'colors.*'          => 'string|max:50',
-            'is_featured'       => 'nullable|boolean',
-            'is_active'         => 'nullable|boolean',
+            'is_featured'       => 'nullable',
+            'is_active'         => 'nullable',
             'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-        ]);
+        ]) + [
+            'is_active'   => $request->has('is_active')   ? true : false,
+            'is_featured' => $request->has('is_featured') ? true : false,
+        ];
     }
 
     private function saveImage($file, string $folder, int $w, int $h): string
     {
-        $filename = uniqid() . '_' . time() . '.webp';
+        $filename = uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
         $path     = "{$folder}/{$filename}";
 
-       $img = Image::make($file)
+        // Use Intervention Image v3 if available, else store original
+        if (class_exists(\Intervention\Image\Facades\Image::class)) {
+
+    $img = Image::make($file)
         ->fit($w, $h)
         ->encode('webp', 85);
-        Storage::disk('public')->put($path, $img);
+
+    Storage::disk('public')->put($path, (string) $img);
+
+} else {
+
+    Storage::disk('public')->put($path, file_get_contents($file->getRealPath()));
+
+}
 
         return $path;
     }

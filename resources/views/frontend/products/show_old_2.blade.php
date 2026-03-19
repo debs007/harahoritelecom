@@ -31,13 +31,14 @@
         <span class="text-gray-800 font-medium truncate max-w-xs">{{ $product->name }}</span>
     </nav>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
 
         {{-- ══ IMAGE CAROUSEL ══════════════════════════════ --}}
-        <div>
+        <div class="sticky top-24">
 
             {{-- Main image --}}
-            <div class="relative bg-gray-50 rounded-3xl overflow-hidden border border-gray-200 mb-3 aspect-square max-h-80 sm:max-h-none">
+            <div class="relative bg-gray-50 rounded-3xl overflow-hidden border border-gray-200 mb-3"
+                 style="aspect-ratio:1/1">
 
                 {{-- Images --}}
                 <template x-for="(img, i) in currentImages" :key="i">

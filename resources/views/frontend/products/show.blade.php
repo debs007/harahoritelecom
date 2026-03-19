@@ -3,7 +3,6 @@
 
 @section('content')
 @php
-    // Build image map: { 'general': [...], 'Black': [...], 'Blue': [...] }
     $imageMap = ['general' => []];
     foreach ($product->images as $img) {
         $key = $img->color ?: 'general';
@@ -13,73 +12,99 @@
             'alt' => $img->alt ?? $product->name,
         ];
     }
-    // If no images at all, add a placeholder
     if (empty($imageMap['general']) && count($imageMap) === 1) {
-        $imageMap['general'][] = ['url' => 'https://placehold.co/800x800/f3f4f6/a855f7?text=📱', 'alt' => $product->name];
+        $imageMap['general'][] = [
+            'url' => 'https://placehold.co/800x800/f3f4f6/a855f7?text=📱',
+            'alt' => $product->name
+        ];
     }
 @endphp
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-28 md:pb-8"
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-8"
      x-data="productPage({{ json_encode($imageMap) }}, {{ json_encode($product->colors ?? []) }})">
 
     {{-- Breadcrumb --}}
-    <nav class="text-sm text-gray-500 mb-6 flex items-center gap-1.5 flex-wrap">
-        <a href="{{ route('home') }}" class="hover:text-violet-600 transition">Home</a>
+    <nav class="text-sm text-gray-500 mb-5 flex items-center gap-1.5 flex-wrap">
+        <a href="{{ route('home') }}" class="hover:text-violet-600">Home</a>
         <span>/</span>
-        <a href="{{ route('products.category', $product->category) }}" class="hover:text-violet-600 transition">{{ $product->category->name }}</a>
+        <a href="{{ route('products.category', $product->category) }}" class="hover:text-violet-600">{{ $product->category->name }}</a>
         <span>/</span>
         <span class="text-gray-800 font-medium truncate max-w-xs">{{ $product->name }}</span>
     </nav>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
 
-        {{-- ══ IMAGE CAROUSEL ══════════════════════════════ --}}
+        {{-- ══ IMAGE SECTION ═══════════════════════════════ --}}
         <div>
+            {{-- Main image box --}}
+            <div class="relative bg-white rounded-2xl border border-gray-200 overflow-hidden mb-3"
+                 style="height:380px;">
 
-            {{-- Main image --}}
-            <div class="relative bg-gray-50 rounded-3xl overflow-hidden border border-gray-200 mb-3 aspect-square max-h-80 sm:max-h-none">
+                {{-- Single rendered image (no absolute stacking needed) --}}
+                <img :src="currentImages[activeIndex] ? currentImages[activeIndex].url : ''"
+                     :alt="currentImages[activeIndex] ? currentImages[activeIndex].alt : ''"
+                     class="w-full h-full object-contain p-4 transition-opacity duration-300"
+                     :class="imgLoaded ? 'opacity-100' : 'opacity-0'"
+                     @load="imgLoaded = true"
+                     @error="$el.src='https://placehold.co/800x800/f3f4f6/a855f7?text=📱'"
+                     draggable="false"
+                     x-init="imgLoaded = true">
 
-                {{-- Images --}}
-                <template x-for="(img, i) in currentImages" :key="i">
-                    <div class="absolute inset-0 transition-all duration-500 ease-in-out"
-                         :class="activeIndex === i ? 'opacity-100 scale-100 z-10' : 'opacity-0 scale-95 z-0'">
-                        <img :src="img.url" :alt="img.alt"
-                             class="w-full h-full object-contain p-4 select-none"
-                             draggable="false">
-                    </div>
-                </template>
-
-                {{-- Prev / Next arrows --}}
-                <button x-show="currentImages.length > 1" @click="prev()"
-                        class="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-violet-600 hover:shadow-violet-100 transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                {{-- Prev button --}}
+                <button x-show="currentImages.length > 1"
+                        @click="prev()"
+                        class="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-violet-600 border border-gray-100 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+                    </svg>
                 </button>
-                <button x-show="currentImages.length > 1" @click="next()"
-                        class="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-600 hover:text-violet-600 hover:shadow-violet-100 transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+
+                {{-- Next button --}}
+                <button x-show="currentImages.length > 1"
+                        @click="next()"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 bg-white rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-violet-600 border border-gray-100 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+                    </svg>
                 </button>
 
-                {{-- Slide counter --}}
+                {{-- Counter badge --}}
                 <div x-show="currentImages.length > 1"
-                     class="absolute bottom-3 right-3 z-20 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+                     class="absolute top-3 right-3 z-10 bg-black/50 text-white text-xs font-medium px-2 py-0.5 rounded-full">
                     <span x-text="activeIndex + 1"></span>/<span x-text="currentImages.length"></span>
                 </div>
 
-                {{-- Color label badge --}}
+                {{-- Color badge --}}
                 <div x-show="selectedColor"
-                     class="absolute top-3 left-3 z-20 bg-white/90 backdrop-blur text-xs font-bold px-2.5 py-1 rounded-full shadow border border-gray-200 flex items-center gap-1.5">
-                    <span class="w-3 h-3 rounded-full" :style="`background:${colorDot(selectedColor)}`"></span>
-                    <span x-text="selectedColor"></span>
+                     class="absolute top-3 left-3 z-10 bg-white/95 border border-gray-200 text-xs font-bold px-2.5 py-1 rounded-full shadow flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full border border-gray-300" :style="`background:${colorDot(selectedColor)}`"></span>
+                    <span x-text="selectedColor" class="text-gray-700"></span>
+                </div>
+
+                {{-- Dot indicators --}}
+                <div x-show="currentImages.length > 1"
+                     class="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                    <template x-for="(img, i) in currentImages" :key="i">
+                        <button @click="goTo(i)"
+                                class="rounded-full transition-all duration-200"
+                                :class="activeIndex === i ? 'w-5 h-2 bg-violet-600' : 'w-2 h-2 bg-gray-300 hover:bg-gray-400'">
+                        </button>
+                    </template>
                 </div>
             </div>
 
             {{-- Thumbnail strip --}}
-            <div x-show="currentImages.length > 1" class="flex gap-2 overflow-x-auto pb-1" style="-ms-overflow-style:none;scrollbar-width:none">
+            <div x-show="currentImages.length > 1"
+                 class="flex gap-2 overflow-x-auto pb-1"
+                 style="-ms-overflow-style:none;scrollbar-width:none;">
                 <template x-for="(img, i) in currentImages" :key="i">
                     <button @click="goTo(i)"
                             class="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all duration-200"
-                            :class="activeIndex === i ? 'border-violet-600 shadow-md shadow-violet-100' : 'border-gray-200 hover:border-violet-300'">
-                        <img :src="img.url" :alt="img.alt" class="w-full h-full object-cover">
+                            :class="activeIndex === i
+                                ? 'border-violet-600 shadow-md'
+                                : 'border-gray-200 opacity-60 hover:opacity-100 hover:border-violet-300'">
+                        <img :src="img.url" class="w-full h-full object-cover"
+                             @error="$el.src='https://placehold.co/64x64/f3f4f6/a855f7?text=📱'">
                     </button>
                 </template>
             </div>
@@ -87,7 +112,6 @@
 
         {{-- ══ PRODUCT INFO ═════════════════════════════════ --}}
         <div>
-            {{-- Brand & badges --}}
             <div class="flex items-center gap-2 mb-2 flex-wrap">
                 <span class="text-violet-600 font-bold text-sm uppercase tracking-wide">{{ $product->brand->name }}</span>
                 @if($product->is_featured)
@@ -100,17 +124,16 @@
 
             <h1 class="text-2xl sm:text-3xl font-black text-gray-900 leading-tight mb-3">{{ $product->name }}</h1>
 
-            {{-- Rating --}}
             @if($product->review_count > 0)
             <div class="flex items-center gap-2 mb-4">
-                <div class="flex text-amber-400 text-lg">@for($i=1;$i<=5;$i++){{ $i<=round($product->avg_rating)?'★':'☆' }}@endfor</div>
+                <div class="flex text-amber-400">@for($i=1;$i<=5;$i++){{ $i<=round($product->avg_rating)?'★':'☆' }}@endfor</div>
                 <span class="text-sm font-semibold text-gray-700">{{ number_format($product->avg_rating,1) }}</span>
                 <span class="text-sm text-gray-400">({{ $product->review_count }} reviews)</span>
             </div>
             @endif
 
             {{-- Price --}}
-            <div class="flex items-baseline gap-3 mb-5">
+            <div class="flex items-baseline gap-3 mb-4">
                 <span class="text-3xl font-black text-gray-900">₹{{ number_format($product->getCurrentPrice()) }}</span>
                 @if($product->sale_price)
                     <span class="text-lg text-gray-400 line-through">₹{{ number_format($product->price) }}</span>
@@ -119,66 +142,65 @@
             </div>
 
             @if($product->short_description)
-            <p class="text-gray-600 leading-relaxed mb-5">{{ $product->short_description }}</p>
+            <p class="text-gray-600 leading-relaxed mb-5 text-sm">{{ $product->short_description }}</p>
             @endif
 
             {{-- ══ COLOR SELECTOR ════════════════════════════ --}}
             @if($product->colors && count($product->colors))
-            <div class="mb-6">
-                <div class="flex items-center gap-2 mb-2">
+            <div class="mb-5">
+                <div class="flex items-center gap-2 mb-3">
                     <p class="text-sm font-bold text-gray-700">Color:</p>
-                    <p class="text-sm text-gray-500" x-text="selectedColor || 'Select a color'"></p>
+                    <p class="text-sm text-gray-500" x-text="selectedColor ? selectedColor : 'Select a color'"></p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     @foreach($product->colors as $color)
                     <button type="button"
                             @click="selectColor('{{ $color }}')"
-                            class="group flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all duration-200"
+                            class="flex items-center gap-2 px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all duration-200"
                             :class="selectedColor === '{{ $color }}'
-                                ? 'border-violet-600 bg-violet-50 text-violet-700 shadow-md shadow-violet-100'
-                                : 'border-gray-200 text-gray-700 hover:border-violet-300 hover:bg-violet-50/50'">
-                        <span class="w-4 h-4 rounded-full border-2 border-white shadow-sm transition-transform group-hover:scale-110"
-                              style="background: {{ 'var(--dot-' . Str::slug($color) . ')' }}"
+                                ? 'border-violet-600 bg-violet-50 text-violet-700 shadow-sm'
+                                : 'border-gray-200 text-gray-700 hover:border-violet-300'">
+                        <span class="w-4 h-4 rounded-full border-2 border-white shadow-sm flex-shrink-0"
                               x-init="$el.style.background = colorDot('{{ $color }}')">
                         </span>
                         {{ $color }}
-                        {{-- Show image count for this color --}}
-                        @php $colorImgCount = $product->images->where('color', $color)->count(); @endphp
-                        @if($colorImgCount > 0)
-                        <span class="text-xs text-gray-400 font-normal">({{ $colorImgCount }})</span>
+                        @php $cnt = $product->images->where('color', $color)->count(); @endphp
+                        @if($cnt > 0)
+                            <span class="text-xs text-gray-400 font-normal">({{ $cnt }})</span>
                         @endif
                     </button>
                     @endforeach
-                    {{-- Clear color selection --}}
-                    <button type="button" x-show="selectedColor" @click="selectColor('')"
-                            class="px-3 py-2 rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-400 hover:border-gray-400 hover:text-gray-600 transition">
-                        Clear
+
+                    <button type="button"
+                            x-show="selectedColor"
+                            @click="selectColor('')"
+                            class="px-3 py-2 rounded-xl border-2 border-dashed border-gray-200 text-xs text-gray-400 hover:border-gray-400 transition">
+                        ✕ Clear
                     </button>
                 </div>
-                <p class="text-xs text-gray-400 mt-2" x-show="selectedColor">
-                    🖼️ Showing <strong x-text="currentImages.length"></strong> images for <span x-text="selectedColor"></span>
+                <p class="text-xs text-gray-400 mt-2" x-show="selectedColor && currentImages.length">
+                    Showing <span x-text="currentImages.length"></span> image(s) for <span x-text="selectedColor" class="font-semibold"></span>
                 </p>
             </div>
             @endif
 
-            {{-- CTA buttons --}}
-            <div class="flex gap-3 mb-6">
+            {{-- CTA --}}
+            <div class="flex gap-3 mb-5">
                 @if($product->isInStock())
                     <button onclick="addToCart({{ $product->id }}, null, 1)"
                             class="flex-1 btn-primary text-base py-3.5 text-center">
                         🛒 Add to Cart
                     </button>
                     <a href="{{ route('checkout.index') }}"
-                       class="flex-1 bg-gray-900 text-white font-bold py-3.5 px-6 rounded-xl text-center hover:bg-gray-800 transition text-base">
-                       ⚡ Buy Now
+                       class="flex-1 bg-gray-900 text-white font-bold py-3.5 px-4 rounded-xl text-center hover:bg-gray-800 transition text-sm flex items-center justify-center">
+                        ⚡ Buy Now
                     </a>
                 @else
-                    <button disabled class="flex-1 bg-gray-100 text-gray-400 font-bold py-3.5 rounded-xl cursor-not-allowed text-base">Out of Stock</button>
+                    <button disabled class="flex-1 bg-gray-100 text-gray-400 font-bold py-3.5 rounded-xl cursor-not-allowed">Out of Stock</button>
                 @endif
                 @auth
                 <button onclick="toggleWishlist(this, '{{ $product->slug }}')"
-                        class="w-12 h-12 rounded-xl border-2 border-gray-200 flex items-center justify-center text-gray-400 hover:border-red-400 hover:text-red-500 transition flex-shrink-0"
-                        title="Add to Wishlist">
+                        class="w-12 h-12 rounded-xl border-2 border-gray-200 flex items-center justify-center text-gray-400 hover:border-red-400 hover:text-red-500 transition flex-shrink-0">
                     <svg class="w-5 h-5" fill="{{ $inWishlist ? '#ef4444' : 'none' }}" stroke="{{ $inWishlist ? '#ef4444' : 'currentColor' }}" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
                     </svg>
@@ -186,7 +208,7 @@
                 @endauth
             </div>
 
-            {{-- Quick specs grid --}}
+            {{-- Quick specs --}}
             @php
                 $specs = [
                     ['📱','Display', trim($product->display_size.' '.$product->display_type)],
@@ -199,26 +221,26 @@
                     ['🤖','OS', $product->os],
                 ];
             @endphp
-            <div class="grid grid-cols-2 gap-2.5 mb-5">
+            <div class="grid grid-cols-2 gap-2 mb-4">
                 @foreach($specs as [$icon, $label, $value])
                 @if($value && trim($value))
-                <div class="bg-gray-50 hover:bg-violet-50 rounded-xl p-3 flex items-start gap-2 transition-colors">
-                    <span class="text-lg">{{ $icon }}</span>
+                <div class="bg-gray-50 rounded-xl p-3 flex items-start gap-2 hover:bg-violet-50 transition">
+                    <span>{{ $icon }}</span>
                     <div>
                         <p class="text-xs text-gray-400 font-medium">{{ $label }}</p>
-                        <p class="text-sm font-bold text-gray-800 leading-snug">{{ trim($value) }}</p>
+                        <p class="text-xs font-bold text-gray-800">{{ trim($value) }}</p>
                     </div>
                 </div>
                 @endif
                 @endforeach
             </div>
 
-            {{-- Delivery info --}}
-            <div class="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-3 mb-4">
-                <span class="text-xl">🚚</span>
+            {{-- Delivery --}}
+            <div class="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2 text-sm">
+                <span>🚚</span>
                 <div>
-                    <p class="text-sm font-bold text-green-800">Free Delivery</p>
-                    <p class="text-xs text-green-600">On orders above ₹999 · Usually 2–5 days</p>
+                    <p class="font-bold text-green-800">Free Delivery</p>
+                    <p class="text-xs text-green-600">On orders above ₹999 · 2–5 business days</p>
                 </div>
             </div>
         </div>
@@ -226,64 +248,28 @@
 
     {{-- Description --}}
     @if($product->description)
-    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-8">
+    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
         <h2 class="text-xl font-black text-gray-900 mb-4">About this Phone</h2>
         <div class="text-gray-700 leading-relaxed text-sm whitespace-pre-line">{{ $product->description }}</div>
     </div>
     @endif
 
-    {{-- Full spec table --}}
-    @if($product->processor || $product->ram)
-    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-8">
-        <h2 class="text-xl font-black text-gray-900 mb-4">Full Specifications</h2>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <tbody class="divide-y divide-gray-100">
-                    @foreach($specs as [$icon, $label, $value])
-                    @if($value && trim($value))
-                    <tr class="hover:bg-gray-50">
-                        <td class="py-3 pr-4 font-semibold text-gray-500 w-1/3">{{ $icon }} {{ $label }}</td>
-                        <td class="py-3 font-medium text-gray-900">{{ trim($value) }}</td>
-                    </tr>
-                    @endif
-                    @endforeach
-                    @if($product->colors && count($product->colors))
-                    <tr class="hover:bg-gray-50">
-                        <td class="py-3 pr-4 font-semibold text-gray-500">🎨 Colors</td>
-                        <td class="py-3">
-                            <div class="flex flex-wrap gap-2">
-                                @foreach($product->colors as $c)
-                                <span class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 px-2 py-1 rounded-full">
-                                    <span class="w-3 h-3 rounded-full border border-gray-300"
-                                          x-data x-init="$el.style.background='{{ '#6366f1' }}'"></span>
-                                    {{ $c }}
-                                </span>
-                                @endforeach
-                            </div>
-                        </td>
-                    </tr>
-                    @endif
-                </tbody>
-            </table>
-        </div>
-    </div>
-    @endif
-
     {{-- Reviews --}}
-    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-8">
-        <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
             <h2 class="text-xl font-black text-gray-900">Customer Reviews</h2>
             @if($product->review_count > 0)
             <div class="flex items-center gap-3">
-                <div>
-                    <div class="text-3xl font-black text-gray-900 leading-none">{{ number_format($product->avg_rating, 1) }}</div>
-                    <div class="flex text-amber-400 text-sm mt-0.5">@for($i=1;$i<=5;$i++){{ $i<=round($product->avg_rating)?'★':'☆' }}@endfor</div>
+                <div class="text-center">
+                    <div class="text-3xl font-black text-gray-900">{{ number_format($product->avg_rating,1) }}</div>
+                    <div class="flex text-amber-400 text-sm justify-center">@for($i=1;$i<=5;$i++){{ $i<=round($product->avg_rating)?'★':'☆' }}@endfor</div>
+                    <p class="text-xs text-gray-400">{{ $product->review_count }} reviews</p>
                 </div>
-                <div>
+                <div class="space-y-0.5">
                     @foreach($ratingBreakdown as $stars => $data)
-                    <div class="flex items-center gap-2 mb-0.5">
-                        <span class="text-xs text-gray-500 w-6 text-right">{{ $stars }}★</span>
-                        <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500 w-5 text-right">{{ $stars }}★</span>
+                        <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div class="h-full bg-amber-400 rounded-full" style="width:{{ $data['percent'] }}%"></div>
                         </div>
                         <span class="text-xs text-gray-400">{{ $data['count'] }}</span>
@@ -295,7 +281,7 @@
         </div>
 
         @forelse($product->reviews()->with('user')->latest()->take(6)->get() as $review)
-        <div class="border-b border-gray-100 pb-5 mb-5 last:border-0 last:mb-0">
+        <div class="border-b border-gray-100 pb-4 mb-4 last:border-0 last:mb-0">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -306,15 +292,15 @@
                         <p class="text-xs text-gray-400">{{ $review->created_at->diffForHumans() }}</p>
                     </div>
                 </div>
-                <div class="flex text-amber-400">@for($i=1;$i<=5;$i++){{ $i<=$review->rating?'★':'☆' }}@endfor</div>
+                <div class="flex text-amber-400 text-sm">@for($i=1;$i<=5;$i++){{ $i<=$review->rating?'★':'☆' }}@endfor</div>
             </div>
             @if($review->title)<p class="font-semibold text-gray-800 text-sm mb-1">{{ $review->title }}</p>@endif
             @if($review->body)<p class="text-gray-600 text-sm leading-relaxed">{{ $review->body }}</p>@endif
         </div>
         @empty
-        <div class="text-center py-10">
-            <p class="text-4xl mb-2">✍️</p>
-            <p class="text-gray-400 text-sm">No reviews yet. Be the first to review!</p>
+        <div class="text-center py-8 text-gray-400">
+            <p class="text-3xl mb-2">✍️</p>
+            <p class="text-sm">No reviews yet. Be the first!</p>
         </div>
         @endforelse
     </div>
@@ -322,7 +308,7 @@
     {{-- Related --}}
     @if($related->count())
     <div>
-        <h2 class="text-xl font-black text-gray-900 mb-5">You may also like</h2>
+        <h2 class="text-xl font-black text-gray-900 mb-4">You may also like</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             @foreach($related as $relProduct)
                 @include('frontend.products._card', ['product' => $relProduct])
@@ -330,6 +316,7 @@
         </div>
     </div>
     @endif
+
 </div>
 @endsection
 
@@ -341,27 +328,28 @@ function productPage(imageMap, colors) {
         colors: colors,
         selectedColor: '',
         activeIndex: 0,
+        imgLoaded: true,
 
         get currentImages() {
-            // If a color is selected AND it has images, show those
+            // Color selected + has images → show color images
             if (this.selectedColor && this.imageMap[this.selectedColor] && this.imageMap[this.selectedColor].length > 0) {
                 return this.imageMap[this.selectedColor];
             }
-            // Otherwise show general images
+            // General images
             if (this.imageMap['general'] && this.imageMap['general'].length > 0) {
                 return this.imageMap['general'];
             }
-            // Fallback: show all images
+            // Fallback: merge all images
             var all = [];
             for (var key in this.imageMap) {
                 all = all.concat(this.imageMap[key]);
             }
-            return all.length > 0 ? all : [{ url: 'https://placehold.co/800x800/f3f4f6/a855f7?text=📱', alt: 'Product' }];
+            return all.length > 0 ? all : [{ url: 'https://placehold.co/800x800/f3f4f6/a855f7?text=📱', alt: '' }];
         },
 
         selectColor(color) {
             this.selectedColor = color;
-            this.activeIndex = 0; // reset to first image of the new color
+            this.activeIndex = 0;
         },
 
         next() {
@@ -372,18 +360,19 @@ function productPage(imageMap, colors) {
             this.activeIndex = (this.activeIndex - 1 + this.currentImages.length) % this.currentImages.length;
         },
 
-        goTo(index) {
-            this.activeIndex = index;
+        goTo(i) {
+            this.activeIndex = i;
         },
 
         colorDot(name) {
             var map = {
-                'black':'#1f2937','white':'#e5e7eb','silver':'#9ca3af','gray':'#6b7280','grey':'#6b7280',
+                'black':'#1f2937','white':'#d1d5db','silver':'#9ca3af','gray':'#6b7280','grey':'#6b7280',
                 'blue':'#3b82f6','midnight':'#1e3a5f','navy':'#1e3a8a','green':'#22c55e','emerald':'#10b981',
                 'forest':'#166534','red':'#ef4444','rose':'#f43f5e','pink':'#ec4899','purple':'#a855f7',
                 'violet':'#7c3aed','gold':'#eab308','yellow':'#facc15','orange':'#f97316',
-                'titanium':'#78716c','graphite':'#374151','starlight':'#fef9ed','coral':'#fb7185',
+                'titanium':'#9ca3af','graphite':'#374151','starlight':'#fef9c3','coral':'#fb7185',
                 'lavender':'#c4b5fd','mint':'#6ee7b7','teal':'#14b8a6','cyan':'#06b6d4',
+                'bronze':'#92400e','champagne':'#f5e6c8',
             };
             var key = (name || '').toLowerCase().replace(/[^a-z]/g, '');
             for (var k in map) {

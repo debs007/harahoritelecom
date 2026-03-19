@@ -202,7 +202,9 @@ class ProductAdminController extends Controller
         $filename = uniqid() . '_' . time() . '.webp';
         $path     = "{$folder}/{$filename}";
 
-        $img = Image::read($file)->cover($w, $h)->toWebp(85);
+       $img = Image::make($file)
+        ->fit($w, $h)
+        ->encode('webp', 85);
         Storage::disk('public')->put($path, $img);
 
         return $path;

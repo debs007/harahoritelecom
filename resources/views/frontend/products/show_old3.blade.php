@@ -199,15 +199,10 @@
                             class="flex-1 btn-primary py-3.5 text-center text-base">
                         🛒 Add to Cart
                     </button>
-                    <form method="POST" action="{{ route('cart.buynow') }}" class="flex-1">
-                        @csrf
-                        <input type="hidden" name="product_id" value="{{ $product->id }}">
-                        <input type="hidden" name="quantity" value="1">
-                        <button type="submit"
-                                class="w-full bg-gray-900 text-white font-bold py-3.5 px-4 rounded-xl hover:bg-gray-800 transition text-sm flex items-center justify-center gap-2">
-                            ⚡ Buy Now
-                        </button>
-                    </form>
+                    <a href="{{ route('checkout.index') }}"
+                       class="flex-1 bg-gray-900 text-white font-bold py-3.5 px-4 rounded-xl text-center hover:bg-gray-800 transition text-sm flex items-center justify-center">
+                        Buy Now
+                    </a>
                 @else
                     <button disabled
                             class="flex-1 bg-gray-100 text-gray-400 font-bold py-3.5 rounded-xl cursor-not-allowed">

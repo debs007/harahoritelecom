@@ -35,12 +35,24 @@ class CartController extends Controller
         }
 
         if (auth()->check()) {
-            $cart = Cart::firstOrCreate([
-                'user_id'    => auth()->id(),
-                'product_id' => $request->product_id,
-                'variant_id' => $request->variant_id,
-            ]);
-            $cart->increment('quantity', $request->quantity);
+            // Find existing cart row for this product+variant
+            $cart = Cart::where('user_id', auth()->id())
+                        ->where('product_id', $request->product_id)
+                        ->where('variant_id', $request->variant_id)
+                        ->first();
+
+            if ($cart) {
+                // Already in cart — just increment
+                $cart->increment('quantity', $request->quantity);
+            } else {
+                // New cart row — create with the correct quantity directly
+                Cart::create([
+                    'user_id'    => auth()->id(),
+                    'product_id' => $request->product_id,
+                    'variant_id' => $request->variant_id,
+                    'quantity'   => $request->quantity,
+                ]);
+            }
         } else {
             $sessionCart = session()->get('cart', []);
             $key         = $request->product_id . '_' . $request->variant_id;
@@ -138,6 +150,64 @@ class CartController extends Controller
     public function count()
     {
         return response()->json(['count' => $this->getCartCount()]);
+    }
+
+    /**
+     * Add item to cart then redirect straight to checkout.
+     * Used by the "Buy Now" button.
+     */
+    public function buyNow(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity'   => 'nullable|integer|min:1|max:10',
+            'variant_id' => 'nullable|exists:product_variants,id',
+        ]);
+
+        $product  = Product::findOrFail($request->product_id);
+        $qty      = $request->quantity ?? 1;
+
+        if (! $product->isInStock()) {
+            return redirect()->route('products.show', $product)
+                ->with('error', 'Product is out of stock.');
+        }
+
+        if (auth()->check()) {
+            $cart = Cart::where('user_id', auth()->id())
+                        ->where('product_id', $request->product_id)
+                        ->where('variant_id', $request->variant_id)
+                        ->first();
+
+            if ($cart) {
+                $cart->increment('quantity', $qty);
+            } else {
+                Cart::create([
+                    'user_id'    => auth()->id(),
+                    'product_id' => $request->product_id,
+                    'variant_id' => $request->variant_id,
+                    'quantity'   => $qty,
+                ]);
+            }
+
+            return redirect()->route('checkout.index');
+        }
+
+        // Guest — save to session then redirect to login
+        $sessionCart = session()->get('cart', []);
+        $key = $request->product_id . '_' . $request->variant_id;
+        if (isset($sessionCart[$key])) {
+            $sessionCart[$key]['quantity'] += $qty;
+        } else {
+            $sessionCart[$key] = [
+                'product_id' => $request->product_id,
+                'variant_id' => $request->variant_id,
+                'quantity'   => $qty,
+            ];
+        }
+        session(['cart' => $sessionCart]);
+
+        return redirect()->route('login')
+            ->with('info', 'Please log in to complete your purchase.');
     }
 
     // ── Helpers ──────────────────────────────────────────

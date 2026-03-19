@@ -30,6 +30,7 @@ Route::prefix('cart')->name('cart.')->group(function () {
     Route::delete('/{cartId}',   [CartController::class, 'remove'])->name('remove');
     Route::post('/coupon/apply', [CartController::class, 'applyCoupon'])->name('coupon.apply');
     Route::delete('/coupon',     [CartController::class, 'removeCoupon'])->name('coupon.remove');
+    Route::post('/buy-now', [CartController::class, 'buyNow'])->name('buynow');
 });
 
 // ── Guest-only auth ──────────────────────────────────────────

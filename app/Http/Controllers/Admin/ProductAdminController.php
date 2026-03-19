@@ -174,39 +174,55 @@ class ProductAdminController extends Controller
     {
         $count = $product->images()->count();
 
-        // General images (no color tag)
-        if ($request->hasFile('general_images')) {
-            foreach ($request->file('general_images') as $i => $file) {
+        // ── General images (no color tag) ────────────────────────
+        // Use allFiles() to reliably get multiple uploaded files
+        $generalFiles = $request->allFiles()['general_images'] ?? [];
+
+        // allFiles() may return a single UploadedFile instead of array
+        // when only one file is uploaded — normalise to array
+        if (!is_array($generalFiles)) {
+            $generalFiles = [$generalFiles];
+        }
+
+        foreach ($generalFiles as $i => $file) {
+            if (!$file || !$file->isValid()) continue;
+
+            ProductImage::create([
+                'product_id' => $product->id,
+                'image'      => $this->saveImage($file, 'products', 800, 800),
+                'color'      => null,
+                'sort_order' => $count,
+                'is_primary' => $count === 0,
+            ]);
+            $count++;
+        }
+
+        // ── Color-tagged image groups ─────────────────────────────
+        $allFiles    = $request->allFiles();
+        $colorImages = $allFiles['color_images'] ?? [];
+
+        foreach ($colorImages as $index => $group) {
+            $color = $request->input("color_images.{$index}.color");
+            $files = $group['files'] ?? [];
+
+            if (empty($color)) continue;
+
+            // Normalise single file to array
+            if (!is_array($files)) {
+                $files = [$files];
+            }
+
+            foreach ($files as $file) {
+                if (!$file || !$file->isValid()) continue;
+
                 ProductImage::create([
                     'product_id' => $product->id,
                     'image'      => $this->saveImage($file, 'products', 800, 800),
-                    'color'      => null,
-                    'sort_order' => $count + $i,
-                    'is_primary' => $count === 0 && $i === 0,
+                    'color'      => $color,
+                    'sort_order' => $count,
+                    'is_primary' => false,
                 ]);
                 $count++;
-            }
-        }
-
-        // Color-tagged image groups
-        if ($request->has('color_images')) {
-            foreach ($request->color_images as $group) {
-                $color = $group['color'] ?? null;
-                $files = $group['files'] ?? [];
-
-                if (empty($files) || empty($color)) continue;
-
-                foreach ($files as $i => $file) {
-                    if (!$file->isValid()) continue;
-                    ProductImage::create([
-                        'product_id' => $product->id,
-                        'image'      => $this->saveImage($file, 'products', 800, 800),
-                        'color'      => $color,
-                        'sort_order' => $count + $i,
-                        'is_primary' => false,
-                    ]);
-                    $count++;
-                }
             }
         }
     }
@@ -238,6 +254,8 @@ class ProductAdminController extends Controller
             'is_featured'       => 'nullable',
             'is_active'         => 'nullable',
             'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'general_images'    => 'nullable|array',
+            'general_images.*'  => 'image|mimes:jpeg,png,jpg,webp|max:5120',
         ]) + [
             'is_active'   => $request->has('is_active')   ? true : false,
             'is_featured' => $request->has('is_featured') ? true : false,
@@ -251,18 +269,15 @@ class ProductAdminController extends Controller
 
         // Use Intervention Image v3 if available, else store original
         if (class_exists(\Intervention\Image\Facades\Image::class)) {
-
-    $img = Image::make($file)
+            $img = Image::make($file)
         ->fit($w, $h)
         ->encode('webp', 85);
 
-    Storage::disk('public')->put($path, (string) $img);
-
-} else {
-
-    Storage::disk('public')->put($path, file_get_contents($file->getRealPath()));
-
-}
+            $path = "{$folder}/" . uniqid() . '_' . time() . '.webp';
+            Storage::disk('public')->put($path, $img);
+        } else {
+            Storage::disk('public')->put($path, file_get_contents($file->getRealPath()));
+        }
 
         return $path;
     }

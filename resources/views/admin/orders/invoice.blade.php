@@ -384,13 +384,13 @@
     {{-- Thank you --}}
     <div class="thank-you">
         <h2>Thank you for your order! 🎉</h2>
-        <p>We appreciate your business. For support, contact us at support@mobileshop.com</p>
+        <p>We appreciate your business. For support, contact us at support@harahoritelecom.net</p>
     </div>
 
     {{-- Footer --}}
     <div class="footer">
         <p>
-            <strong>MobileShop</strong> &nbsp;·&nbsp;
+            <strong>Harahori Telecom</strong> &nbsp;·&nbsp;
             This is a computer-generated invoice and does not require a signature.
         </p>
         <p style="margin-top:4px">

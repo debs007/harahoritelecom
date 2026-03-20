@@ -343,7 +343,7 @@
             <table class="totals-table">
                 <tr>
                     <td class="label">Subtotal</td>
-                    <td class="value">{{ number_format($order->subtotal, 2) }}</td>
+                    <td class="value">&#8377;{{ number_format($order->subtotal, 2) }}</td>
                 </tr>
                 @if($order->discount > 0)
                 <tr class="discount-row">
@@ -351,14 +351,14 @@
                         Discount
                         @if($order->coupon) ({{ $order->coupon->code }}) @endif
                     </td>
-                    <td class="value">{{ number_format($order->discount, 2) }}</td>
+                    <td class="value">&#8377;{{ number_format($order->discount, 2) }}</td>
                 </tr>
                 @endif
                 <tr>
                     <td class="label">Shipping</td>
                     <td class="value">
                         @if($order->shipping_charge > 0)
-                            {{ number_format($order->shipping_charge, 2) }}
+                           &#8377;{{ number_format($order->shipping_charge, 2) }}
                         @else
                             FREE
                         @endif

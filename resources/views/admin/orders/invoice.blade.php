@@ -158,7 +158,8 @@
             font-size: 12px;
         }
         .totals-table .label { color: #6b7280; text-align: right; width: 70%; }
-        .totals-table .value { text-align: right; width: 30%; font-weight: 600; color: #1f2937; }
+        .totals-table .value { text-align: right; width: 30%; color: #1f2937; font-family: DejaVu Sans !important;
+    font-weight: normal !important;}
 
         .total-row td {
             background: #7c3aed;
@@ -366,14 +367,15 @@
                 @if($order->tax > 0)
                 <tr>
                     <td class="label">Tax</td>
-                    <td class="value">{{ number_format($order->tax, 2) }}</td>
+                    <td class="value">&#8377;{{ number_format($order->tax, 2) }}</td>
                 </tr>
                 @endif
                 <tr class="total-row">
                     <td class="label" style="text-align:right; color:#fff !important; font-weight:900">
                         TOTAL AMOUNT
                     </td>
-                    <td class="" style="color:#fff !important; font-size:16px; font-weight:900">
+                    <td class="" style="color:#fff !important; font-size:16px;font-family: DejaVu Sans !important;
+    font-weight: normal !important;">
                         &#8377;{{ number_format($order->total, 2) }}
                     </td>
                 </tr>

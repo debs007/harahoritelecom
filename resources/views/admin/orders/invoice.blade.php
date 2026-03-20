@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'DejaVu Sans','Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: DejaVu Sans;
             font-size: 13px;
             color: #1f2937;
             line-height: 1.5;

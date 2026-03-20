@@ -6,8 +6,18 @@
 <div class="space-y-5">
     <div class="flex items-center justify-between flex-wrap gap-3">
         <h1 class="text-2xl font-bold text-gray-900">Order #{{ $order->order_number }}</h1>
-        @php $c = $order->getStatusBadgeColor() @endphp
-        <span class="badge bg-{{ $c }}-100 text-{{ $c }}-700 capitalize text-sm">{{ str_replace('_',' ',$order->status) }}</span>
+        <div class="flex items-center gap-3 flex-wrap">
+            @php $c = $order->getStatusBadgeColor() @endphp
+            <span class="badge bg-{{ $c }}-100 text-{{ $c }}-700 capitalize text-sm">{{ str_replace('_',' ',$order->status) }}</span>
+            <a href="{{ route('admin.orders.invoice', $order) }}"
+               target="_blank"
+               class="inline-flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-violet-700 transition shadow-md shadow-violet-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Download Invoice PDF
+            </a>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -23,7 +33,19 @@
                              class="w-12 h-12 rounded-lg object-cover border border-gray-100 flex-shrink-0">
                         <div class="flex-1 min-w-0">
                             <p class="font-semibold text-gray-900 text-sm truncate">{{ $item->product_name }}</p>
-                            @if($item->variant_details)<p class="text-xs text-gray-500">{{ $item->variant_details }}</p>@endif
+                            @if($item->variant_details)
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                @foreach(explode(' | ', $item->variant_details) as $detail)
+                                @php
+                                    $isColor=str_starts_with($detail,'Color:');
+                                    $isRam=str_starts_with($detail,'RAM:');
+                                    $isStorage=str_starts_with($detail,'Storage:');
+                                    $chip=$isColor?'bg-violet-100 text-violet-700':($isRam?'bg-blue-100 text-blue-700':($isStorage?'bg-green-100 text-green-700':'bg-gray-100 text-gray-600'));
+                                @endphp
+                                <span class="badge {{ $chip }} text-xs">{{ $detail }}</span>
+                                @endforeach
+                            </div>
+                            @endif
                             <p class="text-xs text-gray-500">Qty: {{ $item->quantity }} × ₹{{ number_format($item->price) }}</p>
                         </div>
                         <p class="font-bold text-gray-900">₹{{ number_format($item->subtotal) }}</p>

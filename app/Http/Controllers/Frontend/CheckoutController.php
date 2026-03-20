@@ -82,12 +82,38 @@ class CheckoutController extends Controller
             ]);
 
             foreach ($cartItems as $item) {
+                // Build variant details: Color + RAM + Storage + any variant options
+                $variantParts = [];
+
+                $selectedColor = $item->selected_color ?? null;
+                if ($selectedColor) {
+                    $variantParts[] = 'Color: ' . $selectedColor;
+                } elseif ($item->product->colors && count($item->product->colors) > 0) {
+                    // Default to first color if none selected
+                    $variantParts[] = 'Color: ' . $item->product->colors[0] . ' (default)';
+                }
+
+                if ($item->variant) {
+                    if ($item->variant->ram)     $variantParts[] = 'RAM: '     . $item->variant->ram;
+                    if ($item->variant->storage) $variantParts[] = 'Storage: ' . $item->variant->storage;
+                    if ($item->variant->color && !$selectedColor) {
+                        // override with variant color if no explicit color selected
+                        $variantParts[0] = 'Color: ' . $item->variant->color;
+                    }
+                } else {
+                    // Use product-level specs as variant details
+                    if ($item->product->ram)     $variantParts[] = 'RAM: '     . $item->product->ram;
+                    if ($item->product->storage) $variantParts[] = 'Storage: ' . $item->product->storage;
+                }
+
+                $variantDetails = implode(' | ', $variantParts) ?: null;
+
                 OrderItem::create([
                     'order_id'        => $order->id,
                     'product_id'      => $item->product_id,
                     'variant_id'      => $item->variant_id,
                     'product_name'    => $item->product->name,
-                    'variant_details' => $item->variant?->getDetailsLabel(),
+                    'variant_details' => $variantDetails,
                     'price'           => $item->variant
                         ? $item->variant->price
                         : $item->product->getCurrentPrice(),

@@ -34,6 +34,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::resource('orders', OrderAdminController::class)->only(['index', 'show', 'update']);
     Route::patch('orders/{order}/status',   [OrderAdminController::class, 'updateStatus'])->name('orders.status');
     Route::patch('orders/{order}/tracking', [OrderAdminController::class, 'updateTracking'])->name('orders.tracking');
+    // Invoice PDF
+    Route::get('orders/{order}/invoice',         [\App\Http\Controllers\Admin\InvoiceController::class, 'download'])->name('orders.invoice');
+    Route::get('orders/{order}/invoice/preview',  [\App\Http\Controllers\Admin\InvoiceController::class, 'preview'])->name('orders.invoice.preview');
 
     // Users
     Route::resource('users', UserAdminController::class)->only(['index', 'show', 'update', 'destroy']);

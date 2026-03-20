@@ -195,14 +195,15 @@
             {{-- CTA buttons --}}
             <div class="flex gap-3 mb-5">
                 @if($product->isInStock())
-                    <button onclick="addToCart({{ $product->id }}, null, 1)"
+                    <button x-on:click="addToCartWithColor({{ $product->id }})"
                             class="flex-1 btn-primary py-3.5 text-center text-base">
                         🛒 Add to Cart
                     </button>
-                    <form method="POST" action="{{ route('cart.buynow') }}" class="flex-1">
+                    <form method="POST" action="{{ route('cart.buynow') }}" class="flex-1" x-ref="buyNowForm">
                         @csrf
                         <input type="hidden" name="product_id" value="{{ $product->id }}">
                         <input type="hidden" name="quantity" value="1">
+                        <input type="hidden" name="selected_color" x-bind:value="selectedColor">
                         <button type="submit"
                                 class="w-full bg-gray-900 text-white font-bold py-3.5 px-4 rounded-xl hover:bg-gray-800 transition text-sm flex items-center justify-center gap-2">
                             ⚡ Buy Now
@@ -416,6 +417,35 @@ function productPage(imageMap, colors) {
 
         goTo(i) {
             this.activeIndex = i;
+        },
+
+        // Add to cart sending the selected color
+        addToCartWithColor(productId) {
+            var self = this;
+            var btn  = event && event.currentTarget ? event.currentTarget : null;
+            var orig = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = 'Adding…'; }
+
+            fetch('/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({
+                    product_id:     productId,
+                    variant_id:     null,
+                    quantity:       1,
+                    selected_color: self.selectedColor || null,
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) { showToast(data.error, 'error'); }
+                else { window.updateCartBadge(data.count); showToast('Added to cart! 🛒', 'success'); }
+            })
+            .catch(function() { showToast('Something went wrong.', 'error'); })
+            .finally(function() { if (btn) { btn.disabled = false; btn.innerHTML = orig; } });
         },
 
         colorDot(name) {

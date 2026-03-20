@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'DejaVu Sans','Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 13px;
             color: #1f2937;
             line-height: 1.5;
@@ -222,10 +222,10 @@
     {{-- Header --}}
     <div class="header">
         <div class="header-left">
-            <div class="brand-name">📱 MobileShop</div>
+            <div class="brand-name">Harahori Telecom</div>
             <div class="brand-tagline">Genuine Phones · Fast Delivery · Easy Returns</div>
             <div class="brand-tagline" style="margin-top:6px;">
-                support@mobileshop.com &nbsp;|&nbsp; www.mobileshop.com
+                support@harahoritelecom.in &nbsp;|&nbsp; www.harahoritelecom.in
             </div>
         </div>
         <div class="header-right">

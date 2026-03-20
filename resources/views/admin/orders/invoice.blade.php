@@ -298,8 +298,8 @@
                     @endif
                 </td>
                 <td style="text-align:center; font-weight:700">{{ $item->quantity }}</td>
-                <td style="text-align:right">₹{{ number_format($item->price, 2) }}</td>
-                <td>₹{{ number_format($item->subtotal, 2) }}</td>
+                <td style="text-align:right">&#8377;{{ number_format($item->price, 2) }}</td>
+                <td>&#8377;{{ number_format($item->subtotal, 2) }}</td>
             </tr>
             @endforeach
         </tbody>
@@ -342,7 +342,7 @@
             <table class="totals-table">
                 <tr>
                     <td class="label">Subtotal</td>
-                    <td class="value">₹{{ number_format($order->subtotal, 2) }}</td>
+                    <td class="value">&#8377;{{ number_format($order->subtotal, 2) }}</td>
                 </tr>
                 @if($order->discount > 0)
                 <tr class="discount-row">
@@ -350,14 +350,14 @@
                         Discount
                         @if($order->coupon) ({{ $order->coupon->code }}) @endif
                     </td>
-                    <td class="value">−₹{{ number_format($order->discount, 2) }}</td>
+                    <td class="value">−&#8377;{{ number_format($order->discount, 2) }}</td>
                 </tr>
                 @endif
                 <tr>
                     <td class="label">Shipping</td>
                     <td class="value">
                         @if($order->shipping_charge > 0)
-                            ₹{{ number_format($order->shipping_charge, 2) }}
+                            &#8377;{{ number_format($order->shipping_charge, 2) }}
                         @else
                             FREE
                         @endif
@@ -366,7 +366,7 @@
                 @if($order->tax > 0)
                 <tr>
                     <td class="label">Tax</td>
-                    <td class="value">₹{{ number_format($order->tax, 2) }}</td>
+                    <td class="value">&#8377;{{ number_format($order->tax, 2) }}</td>
                 </tr>
                 @endif
                 <tr class="total-row">
@@ -374,7 +374,7 @@
                         TOTAL AMOUNT
                     </td>
                     <td class="value" style="color:#fff !important; font-size:16px; font-weight:900">
-                        ₹{{ number_format($order->total, 2) }}
+                        &#8377;{{ number_format($order->total, 2) }}
                     </td>
                 </tr>
             </table>

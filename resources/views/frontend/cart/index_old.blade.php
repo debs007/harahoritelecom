@@ -25,30 +25,9 @@
             @foreach($cartItems as $item)
             <div class="bg-white rounded-2xl border border-gray-200 p-4 flex items-center gap-4">
                 {{-- Image --}}
-                {{-- Color-specific image --}}
-                @php
-                    $cartImg = null;
-                    if ($item->selected_color) {
-                        $cartImg = $item->product->images->firstWhere('color', $item->selected_color);
-                    }
-                    if (!$cartImg) {
-                        $cartImg = $item->product->images->whereNull('color')->first();
-                    }
-                    $cartImgUrl = $cartImg
-                        ? Storage::url($cartImg->image)
-                        : ($item->product->thumbnail ? Storage::url($item->product->thumbnail) : 'https://placehold.co/80x80/f3f4f6/a855f7?text=Phone');
-                @endphp
-                <div class="relative flex-shrink-0">
-                    <img src="{{ $cartImgUrl }}"
-                         class="w-20 h-20 object-contain rounded-xl border border-gray-100 bg-gray-50 p-1"
-                         alt="{{ $item->product->name }}">
-                    @if($item->selected_color)
-                    <span class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-white text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow"
-                          style="background:#7c3aed;font-size:10px">
-                        {{ $item->selected_color }}
-                    </span>
-                    @endif
-                </div>
+                <img src="{{ $item->product->thumbnail ? Storage::url($item->product->thumbnail) : 'https://placehold.co/80x80/f3f4f6/a855f7?text=📱' }}"
+                     class="w-20 h-20 object-cover rounded-xl border border-gray-100 flex-shrink-0"
+                     alt="{{ $item->product->name }}">
 
                 {{-- Details --}}
                 <div class="flex-1 min-w-0">
@@ -56,29 +35,10 @@
                        class="font-bold text-gray-900 hover:text-violet-700 line-clamp-2 text-sm">
                         {{ $item->product->name }}
                     </a>
-                    {{-- Variant detail chips --}}
-                    @php
-                        $chips = [];
-                        if ($item->selected_color) $chips[] = ['label' => $item->selected_color, 'color' => '#7c3aed', 'bg' => '#ede9fe'];
-                        if ($item->variant) {
-                            if ($item->variant->ram)     $chips[] = ['label' => $item->variant->ram,     'color' => '#1d4ed8', 'bg' => '#dbeafe'];
-                            if ($item->variant->storage) $chips[] = ['label' => $item->variant->storage, 'color' => '#065f46', 'bg' => '#d1fae5'];
-                        } else {
-                            if ($item->product->ram)     $chips[] = ['label' => $item->product->ram,     'color' => '#1d4ed8', 'bg' => '#dbeafe'];
-                            if ($item->product->storage) $chips[] = ['label' => $item->product->storage, 'color' => '#065f46', 'bg' => '#d1fae5'];
-                        }
-                    @endphp
-                    @if(count($chips))
-                    <div class="flex flex-wrap gap-1 mt-1">
-                        @foreach($chips as $chip)
-                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                              style="background:{{ $chip['bg'] }};color:{{ $chip['color'] }}">
-                            {{ $chip['label'] }}
-                        </span>
-                        @endforeach
-                    </div>
+                    @if($item->variant)
+                        <p class="text-xs text-gray-500 mt-0.5">{{ $item->variant->getDetailsLabel() }}</p>
                     @endif
-                    <p class="text-violet-700 font-black mt-1.5">₹{{ number_format($item->getSubtotal()) }}</p>
+                    <p class="text-violet-700 font-black mt-1">₹{{ number_format($item->getSubtotal()) }}</p>
                 </div>
 
                 {{-- Qty + Remove --}}

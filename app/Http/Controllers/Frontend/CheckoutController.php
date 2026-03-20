@@ -20,7 +20,7 @@ class CheckoutController extends Controller
 
     public function index()
     {
-        $cartItems = Cart::with(['product', 'variant'])
+        $cartItems = Cart::with(['product.images', 'variant'])
             ->where('user_id', auth()->id())
             ->get();
 
@@ -50,7 +50,7 @@ class CheckoutController extends Controller
         // Verify address belongs to the logged-in user
         $address = auth()->user()->addresses()->findOrFail($request->address_id);
 
-        $cartItems    = Cart::with(['product', 'variant'])->where('user_id', auth()->id())->get();
+        $cartItems    = Cart::with(['product.images', 'variant'])->where('user_id', auth()->id())->get();
         $shippingZone = ShippingZone::findOrFail($request->shipping_zone_id);
         $coupon       = session('coupon') ? Coupon::find(session('coupon.id')) : null;
 

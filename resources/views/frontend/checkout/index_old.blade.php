@@ -90,64 +90,14 @@
                     {{-- Items --}}
                     <div class="space-y-3 mb-4">
                         @foreach($cartItems as $item)
-                        @php
-                            // Pick color-specific image, fall back to general, then thumbnail
-                            $coImg = null;
-                            if ($item->selected_color) {
-                                $coImg = $item->product->images->firstWhere('color', $item->selected_color);
-                            }
-                            if (!$coImg) {
-                                $coImg = $item->product->images->whereNull('color')->first();
-                            }
-                            $coImgUrl = $coImg
-                                ? Storage::url($coImg->image)
-                                : ($item->product->thumbnail
-                                    ? Storage::url($item->product->thumbnail)
-                                    : 'https://placehold.co/48/f3f4f6/a855f7?text=Phone');
-
-                            // Build variant chips
-                            $coChips = [];
-                            if ($item->selected_color)   $coChips[] = ['label' => $item->selected_color,       'bg' => '#ede9fe', 'color' => '#6d28d9'];
-                            if ($item->variant) {
-                                if ($item->variant->ram)     $coChips[] = ['label' => $item->variant->ram,     'bg' => '#dbeafe', 'color' => '#1d4ed8'];
-                                if ($item->variant->storage) $coChips[] = ['label' => $item->variant->storage, 'bg' => '#d1fae5', 'color' => '#065f46'];
-                            } else {
-                                if ($item->product->ram)     $coChips[] = ['label' => $item->product->ram,     'bg' => '#dbeafe', 'color' => '#1d4ed8'];
-                                if ($item->product->storage) $coChips[] = ['label' => $item->product->storage, 'bg' => '#d1fae5', 'color' => '#065f46'];
-                            }
-                        @endphp
-                        <div class="flex items-start gap-3 p-2 rounded-xl hover:bg-gray-50 transition">
-                            {{-- Color-specific image --}}
-                            <div class="relative flex-shrink-0">
-                                <img src="{{ $coImgUrl }}"
-                                     class="w-14 h-14 rounded-xl object-contain bg-gray-50 border border-gray-100 p-0.5"
-                                     alt="{{ $item->product->name }}"
-                                     onerror="this.src='https://placehold.co/56/f3f4f6/a855f7?text=Phone'">
-                                {{-- Qty badge --}}
-                                <span class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-violet-600 text-white text-xs font-black rounded-full flex items-center justify-center shadow">
-                                    {{ $item->quantity }}
-                                </span>
-                            </div>
-
+                        <div class="flex items-center gap-3">
+                            <img src="{{ $item->product->thumbnail ? Storage::url($item->product->thumbnail) : 'https://placehold.co/48/f3f4f6/a855f7?text=📱' }}"
+                                 class="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0">
                             <div class="flex-1 min-w-0">
-                                <p class="text-xs font-bold text-gray-900 leading-snug">{{ $item->product->name }}</p>
-                                {{-- Variant chips --}}
-                                @if(count($coChips))
-                                <div class="flex flex-wrap gap-1 mt-1">
-                                    @foreach($coChips as $chip)
-                                    <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full"
-                                          style="background:{{ $chip['bg'] }};color:{{ $chip['color'] }}">
-                                        {{ $chip['label'] }}
-                                    </span>
-                                    @endforeach
-                                </div>
-                                @endif
-                                <p class="text-xs text-gray-400 mt-0.5">× {{ $item->quantity }}</p>
+                                <p class="text-xs font-semibold text-gray-800 truncate">{{ $item->product->name }}</p>
+                                <p class="text-xs text-gray-500">× {{ $item->quantity }}</p>
                             </div>
-
-                            <p class="text-sm font-black text-gray-900 flex-shrink-0 pt-0.5">
-                                ₹{{ number_format($item->getSubtotal()) }}
-                            </p>
+                            <p class="text-sm font-black text-gray-900 flex-shrink-0">₹{{ number_format($item->getSubtotal()) }}</p>
                         </div>
                         @endforeach
                     </div>

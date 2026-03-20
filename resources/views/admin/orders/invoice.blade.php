@@ -373,7 +373,7 @@
                     <td class="label" style="text-align:right; color:#fff !important; font-weight:900">
                         TOTAL AMOUNT
                     </td>
-                    <td class="value" style="color:#fff !important; font-size:16px; font-weight:900">
+                    <td class="" style="color:#fff !important; font-size:16px; font-weight:900">
                         &#8377;{{ number_format($order->total, 2) }}
                     </td>
                 </tr>

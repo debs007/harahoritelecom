@@ -34,8 +34,21 @@ class CheckoutController extends Controller
         $subtotal      = $cartItems->sum(fn($i) => $i->getSubtotal());
         $discount      = $coupon['discount'] ?? 0;
 
+        // Calculate exchange discount from cart items
+        $exchangeDiscount = 0;
+        foreach ($cartItems as $item) {
+            if ($item->exchange_data && !empty($item->exchange_data['brand'])) {
+                $offer = \App\Models\ExchangeOffer::where('product_id', $item->product_id)
+                    ->where('is_active', true)->first();
+                if ($offer && !empty($item->exchange_data['condition'])) {
+                    $exchangeDiscount = $offer->calculateValue($item->exchange_data['condition']);
+                }
+                break;
+            }
+        }
+
         return view('frontend.checkout.index', compact(
-            'cartItems', 'addresses', 'shippingZones', 'coupon', 'subtotal', 'discount'
+            'cartItems', 'addresses', 'shippingZones', 'coupon', 'subtotal', 'discount', 'exchangeDiscount'
         ));
     }
 
@@ -56,29 +69,66 @@ class CheckoutController extends Controller
 
         $subtotal = $cartItems->sum(fn($i) => $i->getSubtotal());
         $discount = $coupon ? $coupon->calculateDiscount($subtotal) : 0;
-        $shipping = $shippingZone->getRate($subtotal - $discount);
-        $total    = $subtotal - $discount + $shipping;
+
+        // Check for exchange data (from any cart item)
+        $exchangeData     = null;
+        $exchangeDiscount = 0;
+        foreach ($cartItems as $item) {
+            if ($item->exchange_data && !empty($item->exchange_data['brand'])) {
+                $exchangeData = $item->exchange_data;
+                // Get the offer for the product
+                $offer = \App\Models\ExchangeOffer::where('product_id', $item->product_id)
+                    ->where('is_active', true)->first();
+                if ($offer && !empty($exchangeData['condition'])) {
+                    $exchangeDiscount = $offer->calculateValue($exchangeData['condition']);
+                }
+                break;
+            }
+        }
+
+        $shipping = $shippingZone->getRate($subtotal - $discount - $exchangeDiscount);
+        $total    = max(0, $subtotal - $discount - $exchangeDiscount + $shipping);
 
         $order = null;
 
         DB::transaction(function () use (
             $request, $cartItems, $shippingZone, $coupon,
-            $subtotal, $discount, $shipping, $total, &$order
+            $subtotal, $discount, $shipping, $total,
+            $exchangeData, $exchangeDiscount, &$order
         ) {
+            // Create exchange request if applicable
+            $exchangeRequestId = null;
+            if ($exchangeData && !empty($exchangeData['brand'])) {
+                $cartItemWithExchange = $cartItems->first(fn($i) => !empty($i->exchange_data));
+                $er = \App\Models\ExchangeRequest::create([
+                    'user_id'         => auth()->id(),
+                    'product_id'      => $cartItemWithExchange?->product_id ?? $cartItems->first()->product_id,
+                    'old_phone_brand' => $exchangeData['brand'],
+                    'old_phone_model' => $exchangeData['model'],
+                    'imei'            => $exchangeData['imei'] ?? '',
+                    'condition'       => $exchangeData['condition'],
+                    'estimated_value' => $exchangeDiscount,
+                    'status'          => 'pending',
+                ]);
+                $exchangeRequestId = $er->id;
+            }
+
             $order = Order::create([
-                'order_number'     => Order::generateNumber(),
-                'user_id'          => auth()->id(),
-                'address_id'       => $request->address_id,
-                'shipping_zone_id' => $request->shipping_zone_id,
-                'coupon_id'        => $coupon?->id,
-                'subtotal'         => $subtotal,
-                'discount'         => $discount,
-                'shipping_charge'  => $shipping,
-                'tax'              => 0,
-                'total'            => $total,
-                'payment_method'   => $request->payment_method,
-                'status'           => 'pending',
-                'payment_status'   => 'pending',
+                'order_number'       => Order::generateNumber(),
+                'user_id'            => auth()->id(),
+                'address_id'         => $request->address_id,
+                'shipping_zone_id'   => $request->shipping_zone_id,
+                'coupon_id'          => $coupon?->id,
+                'exchange_request_id'=> $exchangeRequestId,
+                'subtotal'           => $subtotal,
+                'discount'           => $discount,
+                'exchange_discount'  => $exchangeDiscount,
+                'shipping_charge'    => $shipping,
+                'tax'                => 0,
+                'total'              => $total,
+                'payment_method'     => $request->payment_method,
+                'status'             => 'pending',
+                'payment_status'     => 'pending',
             ]);
 
             foreach ($cartItems as $item) {

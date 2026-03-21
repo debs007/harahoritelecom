@@ -143,15 +143,6 @@
                                 </div>
                                 @endif
                                 <p class="text-xs text-gray-400 mt-0.5">× {{ $item->quantity }}</p>
-                                {{-- Exchange info --}}
-                                @if($item->exchange_data && is_array($item->exchange_data) && !empty($item->exchange_data['brand']))
-                                <div class="flex items-center gap-1 mt-1 bg-orange-50 rounded-lg px-1.5 py-0.5">
-                                    <span class="text-xs">🔄</span>
-                                    <p class="text-xs text-orange-700 font-semibold truncate">
-                                        {{ $item->exchange_data['brand'] ?? '' }} {{ $item->exchange_data['model'] ?? '' }}
-                                    </p>
-                                </div>
-                                @endif
                             </div>
 
                             <p class="text-sm font-black text-gray-900 flex-shrink-0 pt-0.5">
@@ -164,16 +155,10 @@
                     <div class="border-t border-gray-100 pt-4 space-y-2 text-sm mb-5">
                         <div class="flex justify-between text-gray-600"><span>Subtotal</span><span class="font-semibold">₹{{ number_format($subtotal) }}</span></div>
                         @if($discount > 0)<div class="flex justify-between text-green-600"><span>Coupon Discount</span><span>−₹{{ number_format($discount) }}</span></div>@endif
-                        @if(isset($exchangeDiscount) && $exchangeDiscount > 0)
-                        <div class="flex justify-between text-orange-600">
-                            <span class="flex items-center gap-1">🔄 Exchange Discount</span>
-                            <span>−₹{{ number_format($exchangeDiscount) }}</span>
-                        </div>
-                        @endif
                         <div class="flex justify-between text-gray-500"><span>Shipping</span><span>Calculated above</span></div>
                         <div class="flex justify-between font-black text-gray-900 text-base pt-1 border-t border-gray-100">
                             <span>Total (approx)</span>
-                            <span class="text-violet-700">₹{{ number_format($subtotal - $discount - ($exchangeDiscount ?? 0)) }}</span>
+                            <span class="text-violet-700">₹{{ number_format($subtotal - $discount) }}</span>
                         </div>
                     </div>
 

@@ -11,7 +11,6 @@ use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\Facades\Image;
 
 class ProductAdminController extends Controller
 {
@@ -60,6 +59,12 @@ class ProductAdminController extends Controller
         // Handle color-tagged images
         $this->saveColorImages($request, $product);
 
+        // Save new variants
+        $this->saveNewVariants($request, $product);
+
+        // Save exchange offer
+        $this->saveExchangeOffer($request, $product);
+
         return redirect()->route('admin.products.index')
             ->with('success', 'Product "' . $product->name . '" created successfully!');
     }
@@ -89,6 +94,12 @@ class ProductAdminController extends Controller
 
         // Handle color-tagged images
         $this->saveColorImages($request, $product);
+
+        // Save new variants
+        $this->saveNewVariants($request, $product);
+
+        // Save exchange offer
+        $this->saveExchangeOffer($request, $product);
 
         return back()->with('success', 'Product updated successfully!');
     }
@@ -170,7 +181,56 @@ class ProductAdminController extends Controller
      *   color_images[0][files][]  = <uploaded files>
      *   general_images[]          = <uploaded files with no color>
      */
-    private function saveColorImages(Request $request, Product $product): void
+    private function saveNewVariants(Request $request, Product $product): void
+    {
+        $newVariants = $request->input('new_variants', []);
+        foreach ($newVariants as $row) {
+            if (empty($row['ram']) || empty($row['storage']) || empty($row['sku'])) continue;
+
+            $colors = $row['available_colors'] ?? [];
+            if (!is_array($colors)) $colors = [];
+
+            ProductVariant::create([
+                'product_id'       => $product->id,
+                'ram'              => $row['ram'],
+                'storage'          => $row['storage'],
+                'price'            => $row['price'] ?? $product->price,
+                'stock'            => $row['stock'] ?? 0,
+                'sku'              => $row['sku'],
+                'available_colors' => array_values(array_filter($colors)),
+                'is_active'        => true,
+            ]);
+        }
+    }
+
+    private function saveExchangeOffer(Request $request, Product $product): void
+    {
+        $maxValue = (float) ($request->input('exchange_max_value', 0));
+        $terms    = $request->input('exchange_terms');
+
+        // Use withoutGlobalScopes to find even inactive offers
+        $offer = \App\Models\ExchangeOffer::where('product_id', $product->id)->first();
+
+        if ($maxValue > 0) {
+            if ($offer) {
+                $offer->update([
+                    'max_exchange_value' => $maxValue,
+                    'terms'              => $terms,
+                    'is_active'          => true,
+                ]);
+            } else {
+                \App\Models\ExchangeOffer::create([
+                    'product_id'         => $product->id,
+                    'max_exchange_value' => $maxValue,
+                    'terms'              => $terms,
+                    'is_active'          => true,
+                ]);
+            }
+        } else {
+            // max value = 0 means remove the offer
+            if ($offer) $offer->update(['is_active' => false]);
+        }
+    }
     {
         $count = $product->images()->count();
 
@@ -268,11 +328,8 @@ class ProductAdminController extends Controller
         $path     = "{$folder}/{$filename}";
 
         // Use Intervention Image v3 if available, else store original
-        if (class_exists(\Intervention\Image\Facades\Image::class)) {
-            $img = Image::make($file)
-        ->fit($w, $h)
-        ->encode('webp', 85);
-
+        if (class_exists(\Intervention\Image\Laravel\Facades\Image::class)) {
+            $img = \Intervention\Image\Laravel\Facades\Image::read($file)->cover($w, $h)->toWebp(85);
             $path = "{$folder}/" . uniqid() . '_' . time() . '.webp';
             Storage::disk('public')->put($path, $img);
         } else {

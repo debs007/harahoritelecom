@@ -38,6 +38,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('orders/{order}/invoice',         [\App\Http\Controllers\Admin\InvoiceController::class, 'download'])->name('orders.invoice');
     Route::get('orders/{order}/invoice/preview',  [\App\Http\Controllers\Admin\InvoiceController::class, 'preview'])->name('orders.invoice.preview');
 
+    // Exchange requests
+    Route::patch('exchange/{exchange}', [\App\Http\Controllers\Admin\ExchangeAdminController::class, 'update'])->name('exchange.update');
+
     // Users
     Route::resource('users', UserAdminController::class)->only(['index', 'show', 'update', 'destroy']);
     Route::patch('users/{user}/toggle',     [UserAdminController::class, 'toggle'])->name('users.toggle');

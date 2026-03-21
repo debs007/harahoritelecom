@@ -54,8 +54,7 @@
                 </div>
                 <div class="border-t border-gray-100 mt-3 pt-3 space-y-1.5 text-sm">
                     <div class="flex justify-between text-gray-600"><span>Subtotal</span><span>₹{{ number_format($order->subtotal) }}</span></div>
-                    @if($order->discount > 0)<div class="flex justify-between text-green-600"><span>Coupon Discount</span><span>-₹{{ number_format($order->discount) }}</span></div>@endif
-                    @if($order->exchange_discount > 0)<div class="flex justify-between text-orange-600"><span>🔄 Exchange Discount</span><span>-₹{{ number_format($order->exchange_discount) }}</span></div>@endif
+                    @if($order->discount > 0)<div class="flex justify-between text-green-600"><span>Discount</span><span>-₹{{ number_format($order->discount) }}</span></div>@endif
                     <div class="flex justify-between text-gray-600"><span>Shipping</span><span>₹{{ number_format($order->shipping_charge) }}</span></div>
                     <div class="flex justify-between font-black text-gray-900 text-base pt-1 border-t border-gray-100"><span>Total</span><span>₹{{ number_format($order->total) }}</span></div>
                 </div>
@@ -131,45 +130,6 @@
                     @if($order->payment_id)<div class="flex justify-between"><span class="text-gray-500">ID</span><span class="font-mono text-xs">{{ $order->payment_id }}</span></div>@endif
                 </div>
             </div>
-
-            {{-- Exchange Request --}}
-            @if($order->exchangeRequest)
-            <div class="bg-orange-50 border border-orange-200 rounded-xl p-5">
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="text-xl">🔄</span>
-                    <h2 class="font-bold text-orange-800">Exchange Request</h2>
-                    @php $ec = $order->exchangeRequest->status_badge_color @endphp
-                    <span class="badge bg-{{ $ec }}-100 text-{{ $ec }}-700 capitalize ml-auto text-xs">
-                        {{ $order->exchangeRequest->status }}
-                    </span>
-                </div>
-                <div class="text-sm space-y-1.5">
-                    <div class="flex justify-between"><span class="text-gray-500">Phone</span><span class="font-semibold">{{ $order->exchangeRequest->old_phone_brand }} {{ $order->exchangeRequest->old_phone_model }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">IMEI</span><span class="font-mono text-xs">{{ $order->exchangeRequest->imei }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Condition</span><span class="font-semibold">{{ $order->exchangeRequest->condition_label }}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Est. Value</span><span class="font-bold text-orange-700">₹{{ number_format($order->exchangeRequest->estimated_value) }}</span></div>
-                    @if($order->exchangeRequest->approved_value)
-                    <div class="flex justify-between"><span class="text-gray-500">Approved</span><span class="font-bold text-green-700">₹{{ number_format($order->exchangeRequest->approved_value) }}</span></div>
-                    @endif
-                </div>
-                {{-- Admin action --}}
-                <form method="POST" action="{{ route('admin.exchange.update', $order->exchangeRequest) }}" class="mt-3 space-y-2">
-                    @csrf @method('PATCH')
-                    <div class="flex gap-2">
-                        <select name="status" class="input text-xs flex-1">
-                            @foreach(['pending','verified','approved','rejected'] as $s)
-                            <option value="{{ $s }}" {{ $order->exchangeRequest->status === $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
-                            @endforeach
-                        </select>
-                        <input type="number" name="approved_value" class="input text-xs w-24"
-                               placeholder="₹ value" value="{{ $order->exchangeRequest->approved_value }}">
-                    </div>
-                    <button type="submit" class="w-full text-xs bg-orange-500 text-white py-1.5 rounded-lg font-bold hover:bg-orange-600 transition">
-                        Update Exchange
-                    </button>
-                </form>
-            </div>
-            @endif
         </div>
     </div>
 </div>

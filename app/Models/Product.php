@@ -49,6 +49,11 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class)->where('is_active', true);
     }
 
+    public function exchangeOffer()
+    {
+        return $this->hasOne(ExchangeOffer::class)->where('is_active', true);
+    }
+
     public function reviews()
     {
         return $this->hasMany(Review::class)->where('status', 'approved');

@@ -79,16 +79,6 @@
                     </div>
                     @endif
                     <p class="text-violet-700 font-black mt-1.5">₹{{ number_format($item->getSubtotal()) }}</p>
-                    {{-- Exchange info --}}
-                    @if($item->exchange_data && is_array($item->exchange_data) && !empty($item->exchange_data['brand']))
-                    <div class="flex items-center gap-1.5 mt-1.5 bg-orange-50 border border-orange-200 rounded-lg px-2 py-1">
-                        <span class="text-sm">🔄</span>
-                        <p class="text-xs text-orange-700 font-semibold">
-                            Exchange: {{ $item->exchange_data['brand'] ?? '' }} {{ $item->exchange_data['model'] ?? '' }}
-                            · <span class="capitalize">{{ $item->exchange_data['condition'] ?? '' }}</span>
-                        </p>
-                    </div>
-                    @endif
                 </div>
 
                 {{-- Qty + Remove --}}

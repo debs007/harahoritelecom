@@ -8,20 +8,22 @@ class Order extends Model
 {
     protected $fillable = [
         'order_number', 'user_id', 'address_id', 'shipping_zone_id', 'coupon_id',
-        'subtotal', 'discount', 'shipping_charge', 'tax', 'total',
+        'exchange_request_id',
+        'subtotal', 'discount', 'exchange_discount', 'shipping_charge', 'tax', 'total',
         'status', 'payment_method', 'payment_status', 'payment_id',
         'tracking_number', 'courier_name', 'notes',
         'confirmed_at', 'shipped_at', 'delivered_at',
     ];
 
     protected $casts = [
-        'confirmed_at' => 'datetime',
-        'shipped_at'   => 'datetime',
-        'delivered_at' => 'datetime',
-        'total'        => 'decimal:2',
-        'subtotal'     => 'decimal:2',
-        'discount'     => 'decimal:2',
-        'shipping_charge' => 'decimal:2',
+        'confirmed_at'     => 'datetime',
+        'shipped_at'       => 'datetime',
+        'delivered_at'     => 'datetime',
+        'total'            => 'decimal:2',
+        'subtotal'         => 'decimal:2',
+        'discount'         => 'decimal:2',
+        'exchange_discount'=> 'decimal:2',
+        'shipping_charge'  => 'decimal:2',
     ];
 
     // ── Relationships ─────────────────────────────────────
@@ -44,6 +46,11 @@ class Order extends Model
     public function coupon()
     {
         return $this->belongsTo(Coupon::class);
+    }
+
+    public function exchangeRequest()
+    {
+        return $this->belongsTo(ExchangeRequest::class);
     }
 
     public function items()

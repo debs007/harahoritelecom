@@ -177,6 +177,9 @@
                 </div>
             </div>
 
+            {{-- ══ VARIANTS & EXCHANGE ══════════════════════════════ --}}
+            @include('admin.products.partials.variants-form', ['product' => $product])
+
             {{-- ══ IMAGE MANAGEMENT ══════════════════════════════════ --}}
             <div class="bg-white rounded-xl border border-gray-200 p-5">
                 <div class="flex items-start justify-between mb-4">

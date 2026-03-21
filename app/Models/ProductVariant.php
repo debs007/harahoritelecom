@@ -6,11 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductVariant extends Model
 {
-    protected $fillable = ['product_id', 'color', 'storage', 'ram', 'price', 'stock', 'sku', 'is_active'];
+    protected $fillable = [
+        'product_id', 'color', 'storage', 'ram',
+        'available_colors', 'price', 'stock', 'sku', 'is_active',
+    ];
 
     protected $casts = [
-        'price'     => 'decimal:2',
-        'is_active' => 'boolean',
+        'price'            => 'decimal:2',
+        'is_active'        => 'boolean',
+        'available_colors' => 'array',
     ];
 
     public function product()
@@ -20,8 +24,13 @@ class ProductVariant extends Model
 
     public function getDetailsLabel(): string
     {
-        return collect([$this->color, $this->ram, $this->storage])
+        return collect([$this->ram, $this->storage])
             ->filter()
-            ->implode(' / ');
+            ->implode(' + ');
+    }
+
+    public function hasColor(string $color): bool
+    {
+        return in_array($color, $this->available_colors ?? []);
     }
 }

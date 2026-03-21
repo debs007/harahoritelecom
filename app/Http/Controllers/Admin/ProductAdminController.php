@@ -231,6 +231,8 @@ class ProductAdminController extends Controller
             if ($offer) $offer->update(['is_active' => false]);
         }
     }
+
+    private function saveColorImages(Request $request, Product $product): void
     {
         $count = $product->images()->count();
 

@@ -1,35 +1,38 @@
 <?php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\CartResource;
 use App\Models\Cart;
 use App\Models\Coupon;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CartController extends Controller
 {
     public function index(Request $request)
     {
         $items = Cart::with(['product.images', 'variant'])
-            ->where('user_id', auth()->id())->get();
+            ->where('user_id', auth()->id())
+            ->get();
 
-        $coupon   = $request->session()->get('coupon');
+        // Coupon stored in cache keyed by user id (stateless API, no sessions)
+        $coupon   = $this->getCoupon();
         $subtotal = $items->sum(fn($i) => $i->getSubtotal());
         $discount = $coupon['discount'] ?? 0;
 
         return response()->json([
-            'items'    => CartResource::collection($items)->resolve(),
+            'items'    => $items->map(fn($item) => $this->formatItem($item))->values(),
             'coupon'   => $coupon,
             'subtotal' => (float) $subtotal,
             'discount' => (float) $discount,
             'total'    => (float) max(0, $subtotal - $discount),
-            'count'    => $items->sum('quantity'),
+            'count'    => (int) $items->sum('quantity'),
         ]);
     }
 
-    public function summary(Request $request)
+    public function summary()
     {
         $count = Cart::where('user_id', auth()->id())->sum('quantity');
         return response()->json(['count' => (int) $count]);
@@ -50,9 +53,11 @@ class CartController extends Controller
             return response()->json(['message' => 'Product is out of stock.'], 422);
         }
 
+        // Decode exchange_data JSON string if provided
         $exchangeData = null;
         if ($request->exchange_data) {
-            $exchangeData = json_decode($request->exchange_data, true);
+            $decoded = json_decode($request->exchange_data, true);
+            $exchangeData = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
         }
 
         $cart = Cart::where('user_id', auth()->id())
@@ -62,8 +67,12 @@ class CartController extends Controller
 
         if ($cart) {
             $cart->increment('quantity', $request->quantity);
-            if ($request->selected_color) $cart->update(['selected_color' => $request->selected_color]);
-            if ($exchangeData)            $cart->update(['exchange_data'  => $exchangeData]);
+            if ($request->selected_color) {
+                $cart->update(['selected_color' => $request->selected_color]);
+            }
+            if ($exchangeData) {
+                $cart->update(['exchange_data' => $exchangeData]);
+            }
         } else {
             Cart::create([
                 'user_id'        => auth()->id(),
@@ -76,7 +85,10 @@ class CartController extends Controller
         }
 
         $count = Cart::where('user_id', auth()->id())->sum('quantity');
-        return response()->json(['message' => 'Added to cart!', 'count' => (int) $count]);
+        return response()->json([
+            'message' => 'Added to cart!',
+            'count'   => (int) $count,
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -84,7 +96,10 @@ class CartController extends Controller
         $request->validate(['quantity' => 'required|integer|min:1|max:10']);
         $cart = Cart::where('id', $id)->where('user_id', auth()->id())->firstOrFail();
         $cart->update(['quantity' => $request->quantity]);
-        return response()->json(['message' => 'Cart updated.', 'subtotal' => (float) $cart->getSubtotal()]);
+        return response()->json([
+            'message'  => 'Cart updated.',
+            'subtotal' => (float) $cart->getSubtotal(),
+        ]);
     }
 
     public function remove($id)
@@ -98,8 +113,9 @@ class CartController extends Controller
         $request->validate(['code' => 'required|string']);
 
         $coupon = Coupon::where('code', strtoupper(trim($request->code)))->first();
+
         if (!$coupon || !$coupon->isValid()) {
-            return response()->json(['message' => 'Invalid or expired coupon.'], 422);
+            return response()->json(['message' => 'Invalid or expired coupon code.'], 422);
         }
 
         $items    = Cart::with('product')->where('user_id', auth()->id())->get();
@@ -107,26 +123,98 @@ class CartController extends Controller
 
         if ($subtotal < $coupon->min_order_amount) {
             return response()->json([
-                'message' => "Minimum order ₹{$coupon->min_order_amount} required."
+                'message' => "Minimum order amount ₹{$coupon->min_order_amount} required for this coupon.",
             ], 422);
         }
 
         $discount = $coupon->calculateDiscount($subtotal);
-        $request->session()->put('coupon', [
-            'id' => $coupon->id, 'code' => $coupon->code,
-            'discount' => $discount, 'type' => $coupon->type, 'value' => $coupon->value,
+
+        // Store coupon in cache (stateless API)
+        $this->storeCoupon([
+            'id'       => $coupon->id,
+            'code'     => $coupon->code,
+            'discount' => $discount,
+            'type'     => $coupon->type,
+            'value'    => $coupon->value,
         ]);
 
         return response()->json([
             'message'  => "Coupon applied! You save ₹{$discount}.",
             'discount' => (float) $discount,
-            'coupon'   => ['code' => $coupon->code, 'discount' => (float) $discount],
+            'coupon'   => [
+                'code'     => $coupon->code,
+                'discount' => (float) $discount,
+            ],
         ]);
     }
 
-    public function removeCoupon(Request $request)
+    public function removeCoupon()
     {
-        $request->session()->forget('coupon');
+        $this->clearCoupon();
         return response()->json(['message' => 'Coupon removed.']);
+    }
+
+    // ── Coupon cache helpers (stateless — uses Laravel cache keyed by user id) ──
+
+    private function couponKey(): string
+    {
+        return 'api_cart_coupon_' . auth()->id();
+    }
+
+    private function getCoupon(): ?array
+    {
+        return Cache::get($this->couponKey());
+    }
+
+    private function storeCoupon(array $data): void
+    {
+        Cache::put($this->couponKey(), $data, now()->addDays(1));
+    }
+
+    private function clearCoupon(): void
+    {
+        Cache::forget($this->couponKey());
+    }
+
+    // ── Format a cart item as array (no Resource class, avoids resolve() issues) ──
+
+    private function formatItem(Cart $item): array
+    {
+        // Pick the best image: color-specific → general → thumbnail
+        $images  = $item->product->images ?? collect();
+        $imgObj  = null;
+
+        if ($item->selected_color) {
+            $imgObj = $images->firstWhere('color', $item->selected_color);
+        }
+        if (!$imgObj) {
+            $imgObj = $images->where('color', null)->first();
+        }
+
+        $imageUrl = $imgObj
+            ? url('storage/' . $imgObj->image)
+            : ($item->product->thumbnail ? url('storage/' . $item->product->thumbnail) : null);
+
+        return [
+            'id'             => $item->id,
+            'product_id'     => $item->product_id,
+            'product_name'   => $item->product->name,
+            'product_slug'   => $item->product->slug,
+            'thumbnail'      => $imageUrl,
+            'variant_id'     => $item->variant_id,
+            'variant'        => $item->variant ? [
+                'id'      => $item->variant->id,
+                'label'   => $item->variant->getDetailsLabel(),
+                'ram'     => $item->variant->ram,
+                'storage' => $item->variant->storage,
+            ] : null,
+            'selected_color' => $item->selected_color,
+            'quantity'       => $item->quantity,
+            'unit_price'     => (float) ($item->variant
+                ? $item->variant->price
+                : $item->product->getCurrentPrice()),
+            'subtotal'       => (float) $item->getSubtotal(),
+            'exchange_data'  => $item->exchange_data,
+        ];
     }
 }

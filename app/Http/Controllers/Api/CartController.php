@@ -20,7 +20,7 @@ class CartController extends Controller
         $discount = $coupon['discount'] ?? 0;
 
         return response()->json([
-            'items'    => CartResource::collection($items),
+            'items'    => CartResource::collection($items)->resolve(),
             'coupon'   => $coupon,
             'subtotal' => (float) $subtotal,
             'discount' => (float) $discount,

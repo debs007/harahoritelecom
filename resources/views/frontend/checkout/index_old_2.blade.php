@@ -45,8 +45,7 @@
                         @foreach($shippingZones as $zone)
                         <label class="flex items-center justify-between p-3 border-2 rounded-xl cursor-pointer transition hover:border-violet-300">
                             <div class="flex items-center gap-3">
-                                <input type="radio" name="shipping_zone_id" value="{{ $zone->id }}" class="text-violet-600" required
-                                       {{ stripos($zone->name, 'metro') !== false ? 'checked' : ($loop->first && !$shippingZones->contains(fn($z) => stripos($z->name, 'metro') !== false) ? 'checked' : '') }}>
+                                <input type="radio" name="shipping_zone_id" value="{{ $zone->id }}" class="text-violet-600" required>
                                 <div>
                                     <p class="font-bold text-gray-800">{{ $zone->name }}</p>
                                     <p class="text-xs text-gray-500">{{ $zone->estimated_days }} business days · {{ implode(', ', array_slice($zone->states, 0, 3)) }}{{ count($zone->states) > 3 ? '...' : '' }}</p>

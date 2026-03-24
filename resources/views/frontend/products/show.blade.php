@@ -544,6 +544,14 @@ function productPage(imageMap, variants, allColors, basePrice, productId) {
         productId:      productId,
         selectedColor:  '',
         selectedVariant: null,
+
+        init() {
+            // Auto-select first in-stock variant
+            if (this.variants.length > 0) {
+                const first = this.variants.find(v => v.stock > 0) || this.variants[0];
+                this.selectedVariant = first;
+            }
+        },
         activeIndex:    0,
         showExchange:   false,
         exchangeApplied: false,

@@ -2,7 +2,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\OrderResource;
 use App\Models\Cart;
 use App\Models\Coupon;
 use App\Models\ExchangeOffer;
@@ -12,19 +11,29 @@ use App\Models\OrderItem;
 use App\Models\OrderStatusLog;
 use App\Models\ShippingZone;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    // ── List orders ──────────────────────────────────────────────────────
     public function index()
     {
         $orders = Order::with(['items.product'])
             ->where('user_id', auth()->id())
             ->latest()->paginate(10);
 
-        return OrderResource::collection($orders);
+        return response()->json([
+            'data' => $orders->map(fn($o) => $this->formatOrder($o))->values(),
+            'meta' => [
+                'total'        => $orders->total(),
+                'current_page' => $orders->currentPage(),
+                'last_page'    => $orders->lastPage(),
+            ],
+        ]);
     }
 
+    // ── Single order ─────────────────────────────────────────────────────
     public function show($number)
     {
         $order = Order::with(['items.product', 'address', 'statusLogs', 'exchangeRequest'])
@@ -32,9 +41,10 @@ class OrderController extends Controller
             ->where('order_number', $number)
             ->firstOrFail();
 
-        return new OrderResource($order);
+        return response()->json($this->formatOrderDetail($order));
     }
 
+    // ── Place order ──────────────────────────────────────────────────────
     public function store(Request $request)
     {
         $request->validate([
@@ -47,13 +57,14 @@ class OrderController extends Controller
         $address      = auth()->user()->addresses()->findOrFail($request->address_id);
         $cartItems    = Cart::with(['product', 'variant'])->where('user_id', auth()->id())->get();
         $shippingZone = ShippingZone::findOrFail($request->shipping_zone_id);
-        $coupon       = $request->session()->get('coupon')
-            ? Coupon::find($request->session()->get('coupon.id'))
-            : null;
 
         if ($cartItems->isEmpty()) {
             return response()->json(['message' => 'Cart is empty.'], 422);
         }
+
+        // Get coupon from Cache (stateless API — no sessions)
+        $couponData = Cache::get('api_cart_coupon_' . auth()->id());
+        $coupon     = $couponData ? Coupon::find($couponData['id']) : null;
 
         $subtotal         = $cartItems->sum(fn($i) => $i->getSubtotal());
         $discount         = $coupon ? $coupon->calculateDiscount($subtotal) : 0;
@@ -62,7 +73,7 @@ class OrderController extends Controller
 
         if ($exchangeData && !empty($exchangeData['brand'])) {
             $cartItem = $cartItems->first(fn($i) => !empty($i->exchange_data));
-            $offer = ExchangeOffer::where('product_id', ($cartItem ?? $cartItems->first())->product_id)
+            $offer    = ExchangeOffer::where('product_id', ($cartItem ?? $cartItems->first())->product_id)
                 ->where('is_active', true)->first();
             if ($offer && !empty($exchangeData['condition'])) {
                 $exchangeDiscount = $offer->calculateValue($exchangeData['condition']);
@@ -83,7 +94,7 @@ class OrderController extends Controller
                     'user_id'         => auth()->id(),
                     'product_id'      => $cartItems->first()->product_id,
                     'old_phone_brand' => $exchangeData['brand'],
-                    'old_phone_model' => $exchangeData['model'],
+                    'old_phone_model' => $exchangeData['model'] ?? '',
                     'imei'            => $exchangeData['imei'] ?? '',
                     'condition'       => $exchangeData['condition'],
                     'estimated_value' => $exchangeDiscount,
@@ -111,17 +122,18 @@ class OrderController extends Controller
             ]);
 
             foreach ($cartItems as $item) {
-                $variantParts = [];
-                $color = $item->selected_color;
-                if ($color) $variantParts[] = 'Color: ' . $color;
-                elseif ($item->product->colors && count($item->product->colors) > 0)
+                $variantParts  = [];
+                $selectedColor = $item->selected_color;
+                if ($selectedColor) {
+                    $variantParts[] = 'Color: ' . $selectedColor;
+                } elseif ($item->product->colors && count($item->product->colors) > 0) {
                     $variantParts[] = 'Color: ' . $item->product->colors[0] . ' (default)';
-
+                }
                 if ($item->variant) {
-                    if ($item->variant->ram)     $variantParts[] = 'RAM: ' . $item->variant->ram;
+                    if ($item->variant->ram)     $variantParts[] = 'RAM: '     . $item->variant->ram;
                     if ($item->variant->storage) $variantParts[] = 'Storage: ' . $item->variant->storage;
                 } else {
-                    if ($item->product->ram)     $variantParts[] = 'RAM: ' . $item->product->ram;
+                    if ($item->product->ram)     $variantParts[] = 'RAM: '     . $item->product->ram;
                     if ($item->product->storage) $variantParts[] = 'Storage: ' . $item->product->storage;
                 }
 
@@ -131,24 +143,30 @@ class OrderController extends Controller
                     'variant_id'      => $item->variant_id,
                     'product_name'    => $item->product->name,
                     'variant_details' => implode(' | ', $variantParts) ?: null,
-                    'price'           => $item->variant ? $item->variant->price : $item->product->getCurrentPrice(),
+                    'price'           => $item->variant
+                        ? $item->variant->price
+                        : $item->product->getCurrentPrice(),
                     'quantity'        => $item->quantity,
                     'subtotal'        => $item->getSubtotal(),
                 ]);
             }
 
-            OrderStatusLog::create(['order_id' => $order->id, 'status' => 'pending', 'comment' => 'Order placed.']);
+            OrderStatusLog::create([
+                'order_id' => $order->id,
+                'status'   => 'pending',
+                'comment'  => 'Order placed successfully.',
+            ]);
 
             if ($coupon) $coupon->increment('used_count');
-
-            // Clear cart
             Cart::where('user_id', auth()->id())->delete();
+
             return $order;
         });
 
-        $request->session()->forget('coupon');
+        // Clear coupon cache
+        Cache::forget('api_cart_coupon_' . auth()->id());
 
-        // If Razorpay, create Razorpay order and return key
+        // Razorpay order creation
         $razorpayData = null;
         if ($request->payment_method === 'razorpay') {
             try {
@@ -162,24 +180,25 @@ class OrderController extends Controller
                     'receipt'  => $order->order_number,
                 ]);
                 $razorpayData = [
-                    'key'           => config('services.razorpay.key'),
-                    'order_id'      => $rzOrder->id,
-                    'amount'        => (int)($total * 100),
-                    'order_number'  => $order->order_number,
+                    'key'          => config('services.razorpay.key'),
+                    'order_id'     => $rzOrder->id,
+                    'amount'       => (int)($total * 100),
+                    'order_number' => $order->order_number,
                 ];
             } catch (\Exception $e) {
-                // Razorpay not configured — return order without payment data
+                // Razorpay not configured — COD fallback
             }
         }
 
         return response()->json([
-            'message'       => 'Order placed successfully!',
-            'order_number'  => $order->order_number,
-            'order'         => new OrderResource($order),
-            'razorpay'      => $razorpayData,
+            'message'      => 'Order placed successfully!',
+            'order_number' => $order->order_number,
+            'order'        => $this->formatOrder($order),
+            'razorpay'     => $razorpayData,
         ], 201);
     }
 
+    // ── Cancel order ─────────────────────────────────────────────────────
     public function cancel($number)
     {
         $order = Order::where('user_id', auth()->id())
@@ -190,11 +209,16 @@ class OrderController extends Controller
         }
 
         $order->update(['status' => 'cancelled']);
-        OrderStatusLog::create(['order_id' => $order->id, 'status' => 'cancelled', 'comment' => 'Cancelled by customer.']);
+        OrderStatusLog::create([
+            'order_id' => $order->id,
+            'status'   => 'cancelled',
+            'comment'  => 'Cancelled by customer.',
+        ]);
 
-        return response()->json(['message' => 'Order cancelled successfully.']);
+        return response()->json(['message' => 'Order cancelled.']);
     }
 
+    // ── Verify Razorpay payment ──────────────────────────────────────────
     public function verifyPayment(Request $request)
     {
         $request->validate([
@@ -223,7 +247,11 @@ class OrderController extends Controller
                 'payment_id'     => $request->razorpay_payment_id,
                 'status'         => 'confirmed',
             ]);
-            OrderStatusLog::create(['order_id' => $order->id, 'status' => 'confirmed', 'comment' => 'Payment verified.']);
+            OrderStatusLog::create([
+                'order_id' => $order->id,
+                'status'   => 'confirmed',
+                'comment'  => 'Payment verified via Razorpay.',
+            ]);
 
             return response()->json(['message' => 'Payment verified! Order confirmed.']);
         } catch (\Exception $e) {
@@ -231,16 +259,88 @@ class OrderController extends Controller
         }
     }
 
+    // ── Shipping zones ───────────────────────────────────────────────────
     public function shippingZones()
     {
-        $zones = ShippingZone::where('is_active', true)->get()->map(fn($z) => [
-            'id'             => $z->id,
-            'name'           => $z->name,
-            'rate'           => (float) $z->rate,
-            'free_above'     => $z->free_above ? (float) $z->free_above : null,
-            'estimated_days' => $z->estimated_days,
-            'states'         => $z->states,
-        ]);
+        $zones = ShippingZone::where('is_active', true)->get()
+            ->map(fn($z) => [
+                'id'             => $z->id,
+                'name'           => $z->name,
+                'rate'           => (float) $z->rate,
+                'free_above'     => $z->free_above ? (float) $z->free_above : null,
+                'estimated_days' => $z->estimated_days,
+                'states'         => $z->states ?? [],
+                // Mark metro cities zone for default selection
+                'is_metro'       => stripos($z->name, 'metro') !== false,
+            ])
+            ->sortByDesc('is_metro')
+            ->values();
+
         return response()->json(['shipping_zones' => $zones]);
+    }
+
+    // ── Formatters ───────────────────────────────────────────────────────
+    private function formatOrder(Order $order): array
+    {
+        return [
+            'id'            => $order->id,
+            'order_number'  => $order->order_number,
+            'status'        => $order->status,
+            'status_label'  => ucwords(str_replace('_', ' ', $order->status)),
+            'payment_method'=> $order->payment_method,
+            'payment_status'=> $order->payment_status,
+            'subtotal'      => (float) $order->subtotal,
+            'discount'      => (float) $order->discount,
+            'exchange_discount' => (float) ($order->exchange_discount ?? 0),
+            'shipping_charge'=> (float) $order->shipping_charge,
+            'total'         => (float) $order->total,
+            'created_at'    => $order->created_at->toISOString(),
+            'items'         => $order->relationLoaded('items')
+                ? $order->items->map(fn($item) => [
+                    'id'              => $item->id,
+                    'product_id'      => $item->product_id,
+                    'product_name'    => $item->product_name,
+                    'variant_details' => $item->variant_details,
+                    'price'           => (float) $item->price,
+                    'quantity'        => $item->quantity,
+                    'subtotal'        => (float) $item->subtotal,
+                    'thumbnail'       => $item->product?->thumbnail
+                        ? url('storage/' . $item->product->thumbnail) : null,
+                ])->values()
+                : [],
+            'tracking_number' => $order->tracking_number,
+            'courier_name'    => $order->courier_name,
+        ];
+    }
+
+    private function formatOrderDetail(Order $order): array
+    {
+        $base = $this->formatOrder($order);
+
+        $base['address'] = $order->address ? [
+            'full_name'    => $order->address->full_name,
+            'phone'        => $order->address->phone,
+            'full_address' => $order->address->full_address,
+        ] : null;
+
+        $base['status_logs'] = $order->statusLogs
+            ? $order->statusLogs->map(fn($log) => [
+                'status'     => $log->status,
+                'comment'    => $log->comment,
+                'created_at' => $log->created_at->toISOString(),
+            ])->values()
+            : [];
+
+        $base['exchange_request'] = $order->exchangeRequest ? [
+            'brand'           => $order->exchangeRequest->old_phone_brand,
+            'model'           => $order->exchangeRequest->old_phone_model,
+            'condition'       => $order->exchangeRequest->condition,
+            'estimated_value' => (float) $order->exchangeRequest->estimated_value,
+            'approved_value'  => $order->exchangeRequest->approved_value
+                ? (float) $order->exchangeRequest->approved_value : null,
+            'status'          => $order->exchangeRequest->status,
+        ] : null;
+
+        return $base;
     }
 }

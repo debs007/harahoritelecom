@@ -36,7 +36,7 @@ class OrderController extends Controller
     // ── Single order ─────────────────────────────────────────────────────
     public function show($number)
     {
-        $order = Order::with(['items.product', 'address', 'statusLogs', 'exchangeRequest'])
+        $order = Order::with(['items.product', 'address', 'statusLogs', 'exchangeRequest.product'])
             ->where('user_id', auth()->id())
             ->where('order_number', $number)
             ->firstOrFail();
@@ -283,19 +283,20 @@ class OrderController extends Controller
     private function formatOrder(Order $order): array
     {
         return [
-            'id'            => $order->id,
-            'order_number'  => $order->order_number,
-            'status'        => $order->status,
-            'status_label'  => ucwords(str_replace('_', ' ', $order->status)),
-            'payment_method'=> $order->payment_method,
-            'payment_status'=> $order->payment_status,
-            'subtotal'      => (float) $order->subtotal,
-            'discount'      => (float) $order->discount,
-            'exchange_discount' => (float) ($order->exchange_discount ?? 0),
-            'shipping_charge'=> (float) $order->shipping_charge,
-            'total'         => (float) $order->total,
-            'created_at'    => $order->created_at->toISOString(),
-            'items'         => $order->relationLoaded('items')
+            'id'               => $order->id,
+            'order_number'     => $order->order_number,
+            'status'           => $order->status,
+            'status_label'     => ucwords(str_replace('_', ' ', $order->status)),
+            'payment_method'   => $order->payment_method,
+            'payment_status'   => $order->payment_status,
+            'subtotal'         => (float) $order->subtotal,
+            'discount'         => (float) $order->discount,
+            'exchange_discount'=> (float) ($order->exchange_discount ?? 0),
+            'shipping_charge'  => (float) $order->shipping_charge,
+            'total'            => (float) $order->total,
+            'refund_amount'    => $order->refund_amount ? (float) $order->refund_amount : null,
+            'created_at'       => $order->created_at->toISOString(),
+            'items'            => $order->relationLoaded('items')
                 ? $order->items->map(fn($item) => [
                     'id'              => $item->id,
                     'product_id'      => $item->product_id,
@@ -308,8 +309,8 @@ class OrderController extends Controller
                         ? url('storage/' . $item->product->thumbnail) : null,
                 ])->values()
                 : [],
-            'tracking_number' => $order->tracking_number,
-            'courier_name'    => $order->courier_name,
+            'tracking_number'  => $order->tracking_number,
+            'courier_name'     => $order->courier_name,
         ];
     }
 
@@ -331,14 +332,32 @@ class OrderController extends Controller
             ])->values()
             : [];
 
-        $base['exchange_request'] = $order->exchangeRequest ? [
-            'brand'           => $order->exchangeRequest->old_phone_brand,
-            'model'           => $order->exchangeRequest->old_phone_model,
-            'condition'       => $order->exchangeRequest->condition,
-            'estimated_value' => (float) $order->exchangeRequest->estimated_value,
-            'approved_value'  => $order->exchangeRequest->approved_value
-                ? (float) $order->exchangeRequest->approved_value : null,
-            'status'          => $order->exchangeRequest->status,
+        // Exchange request — includes the product being purchased
+        $ex = $order->exchangeRequest;
+        $base['exchange_request'] = $ex ? [
+            'brand'            => $ex->old_phone_brand,
+            'model'            => $ex->old_phone_model,
+            'imei'             => $ex->imei,
+            'condition'        => $ex->condition,
+            'condition_label'  => $ex->condition_label,
+            'estimated_value'  => (float) $ex->estimated_value,
+            'approved_value'   => $ex->approved_value ? (float) $ex->approved_value : null,
+            'status'           => $ex->status,
+            // The product the exchange was applied to (new phone being purchased)
+            'exchange_for_product' => $ex->product ? [
+                'name'      => $ex->product->name,
+                'price'     => (float) $ex->product->getCurrentPrice(),
+                'thumbnail' => $ex->product->thumbnail
+                    ? url('storage/' . $ex->product->thumbnail) : null,
+            ] : null,
+        ] : null;
+
+        // Refund info
+        $base['refund'] = $order->refunded_at ? [
+            'amount'         => (float) $order->refund_amount,
+            'reason'         => $order->refund_reason,
+            'transaction_id' => $order->refund_transaction_id,
+            'refunded_at'    => $order->refunded_at->toISOString(),
         ] : null;
 
         return $base;

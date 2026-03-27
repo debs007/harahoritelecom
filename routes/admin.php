@@ -4,8 +4,11 @@ use App\Http\Controllers\Admin\BrandAdminController;
 use App\Http\Controllers\Admin\CategoryAdminController;
 use App\Http\Controllers\Admin\CouponAdminController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ExchangeAdminController;
+use App\Http\Controllers\Admin\InvoiceController;
 use App\Http\Controllers\Admin\OrderAdminController;
 use App\Http\Controllers\Admin\ProductAdminController;
+use App\Http\Controllers\Admin\RefundAdminController;
 use App\Http\Controllers\Admin\ReviewAdminController;
 use App\Http\Controllers\Admin\ShippingAdminController;
 use App\Http\Controllers\Admin\UserAdminController;
@@ -34,12 +37,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::resource('orders', OrderAdminController::class)->only(['index', 'show', 'update']);
     Route::patch('orders/{order}/status',   [OrderAdminController::class, 'updateStatus'])->name('orders.status');
     Route::patch('orders/{order}/tracking', [OrderAdminController::class, 'updateTracking'])->name('orders.tracking');
+
+    // Refunds
+    Route::post('orders/{order}/refund',    [RefundAdminController::class, 'process'])->name('orders.refund');
+
     // Invoice PDF
-    Route::get('orders/{order}/invoice',         [\App\Http\Controllers\Admin\InvoiceController::class, 'download'])->name('orders.invoice');
-    Route::get('orders/{order}/invoice/preview',  [\App\Http\Controllers\Admin\InvoiceController::class, 'preview'])->name('orders.invoice.preview');
+    Route::get('orders/{order}/invoice',         [InvoiceController::class, 'download'])->name('orders.invoice');
+    Route::get('orders/{order}/invoice/preview', [InvoiceController::class, 'preview'])->name('orders.invoice.preview');
 
     // Exchange requests
-    Route::patch('exchange/{exchange}', [\App\Http\Controllers\Admin\ExchangeAdminController::class, 'update'])->name('exchange.update');
+    Route::patch('exchange/{exchange}', [ExchangeAdminController::class, 'update'])->name('exchange.update');
 
     // Users
     Route::resource('users', UserAdminController::class)->only(['index', 'show', 'update', 'destroy']);
@@ -52,8 +59,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::resource('shipping', ShippingAdminController::class)->parameters(['shipping' => 'shipping']);
 
     // Reviews
-    Route::get('reviews',                   [ReviewAdminController::class, 'index'])->name('reviews.index');
-    Route::patch('reviews/{review}/approve',[ReviewAdminController::class, 'approve'])->name('reviews.approve');
-    Route::patch('reviews/{review}/reject', [ReviewAdminController::class, 'reject'])->name('reviews.reject');
-    Route::delete('reviews/{review}',       [ReviewAdminController::class, 'destroy'])->name('reviews.destroy');
+    Route::get('reviews',                    [ReviewAdminController::class, 'index'])->name('reviews.index');
+    Route::patch('reviews/{review}/approve', [ReviewAdminController::class, 'approve'])->name('reviews.approve');
+    Route::patch('reviews/{review}/reject',  [ReviewAdminController::class, 'reject'])->name('reviews.reject');
+    Route::delete('reviews/{review}',        [ReviewAdminController::class, 'destroy'])->name('reviews.destroy');
 });

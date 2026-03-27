@@ -14,12 +14,8 @@ class OrderAdminController extends Controller
     {
         $query = Order::with(['user', 'items']);
 
-        if ($request->status) {
-            $query->where('status', $request->status);
-        }
-        if ($request->payment_method) {
-            $query->where('payment_method', $request->payment_method);
-        }
+        if ($request->status)         $query->where('status', $request->status);
+        if ($request->payment_method) $query->where('payment_method', $request->payment_method);
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('order_number', 'like', "%{$request->search}%")
@@ -27,18 +23,13 @@ class OrderAdminController extends Controller
                       ->orWhere('email', 'like', "%{$request->search}%"));
             });
         }
-        if ($request->date_from) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-        if ($request->date_to) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
+        if ($request->date_from) $query->whereDate('created_at', '>=', $request->date_from);
+        if ($request->date_to)   $query->whereDate('created_at', '<=', $request->date_to);
 
         $orders = $query->latest()->paginate(25);
 
         $statusCounts = Order::selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status');
+            ->groupBy('status')->pluck('count', 'status');
 
         return view('admin.orders.index', compact('orders', 'statusCounts'));
     }
@@ -52,13 +43,13 @@ class OrderAdminController extends Controller
             'shippingZone',
             'statusLogs.updatedBy',
             'coupon',
+            'exchangeRequest.product',   // ← load the product being purchased via exchange
         ]);
         return view('admin.orders.show', compact('order'));
     }
 
     public function update(Request $request, Order $order)
     {
-        // Generic update (notes, etc.)
         $order->update($request->only('notes'));
         return back()->with('success', 'Order updated.');
     }
@@ -95,7 +86,6 @@ class OrderAdminController extends Controller
             'updated_by' => auth()->id(),
         ]);
 
-        // Notify customer
         $order->user->notify(new OrderStatusUpdatedNotification($order));
 
         return back()->with('success', 'Order status updated to "' . str_replace('_', ' ', $request->status) . '".');

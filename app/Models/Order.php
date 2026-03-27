@@ -13,61 +13,37 @@ class Order extends Model
         'status', 'payment_method', 'payment_status', 'payment_id',
         'tracking_number', 'courier_name', 'notes',
         'confirmed_at', 'shipped_at', 'delivered_at',
+        'refund_amount', 'refund_reason', 'refunded_at', 'refund_transaction_id',
     ];
 
     protected $casts = [
-        'confirmed_at'     => 'datetime',
-        'shipped_at'       => 'datetime',
-        'delivered_at'     => 'datetime',
-        'total'            => 'decimal:2',
-        'subtotal'         => 'decimal:2',
-        'discount'         => 'decimal:2',
-        'exchange_discount'=> 'decimal:2',
-        'shipping_charge'  => 'decimal:2',
+        'confirmed_at'           => 'datetime',
+        'shipped_at'             => 'datetime',
+        'delivered_at'           => 'datetime',
+        'refunded_at'            => 'datetime',
+        'total'                  => 'decimal:2',
+        'subtotal'               => 'decimal:2',
+        'discount'               => 'decimal:2',
+        'exchange_discount'      => 'decimal:2',
+        'shipping_charge'        => 'decimal:2',
+        'refund_amount'          => 'decimal:2',
     ];
 
-    // ── Relationships ─────────────────────────────────────
+    // ── Relationships ─────────────────────────────────────────────────────────
 
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    public function user()            { return $this->belongsTo(User::class); }
+    public function address()         { return $this->belongsTo(Address::class); }
+    public function shippingZone()    { return $this->belongsTo(ShippingZone::class); }
+    public function coupon()          { return $this->belongsTo(Coupon::class); }
+    public function exchangeRequest() { return $this->belongsTo(ExchangeRequest::class); }
+    public function items()           { return $this->hasMany(OrderItem::class); }
+    public function statusLogs()      { return $this->hasMany(OrderStatusLog::class)->latest(); }
 
-    public function address()
-    {
-        return $this->belongsTo(Address::class);
-    }
-
-    public function shippingZone()
-    {
-        return $this->belongsTo(ShippingZone::class);
-    }
-
-    public function coupon()
-    {
-        return $this->belongsTo(Coupon::class);
-    }
-
-    public function exchangeRequest()
-    {
-        return $this->belongsTo(ExchangeRequest::class);
-    }
-
-    public function items()
-    {
-        return $this->hasMany(OrderItem::class);
-    }
-
-    public function statusLogs()
-    {
-        return $this->hasMany(OrderStatusLog::class)->latest();
-    }
-
-    // ── Helpers ───────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     public static function generateNumber(): string
     {
-        return 'MS-' . strtoupper(substr(uniqid(), -8)) . '-' . now()->format('Ymd');
+        return 'HT-' . strtoupper(substr(uniqid(), -8)) . '-' . now()->format('Ymd');
     }
 
     public function getStatusBadgeColor(): string
@@ -88,5 +64,20 @@ class Order extends Model
     public function canBeCancelled(): bool
     {
         return in_array($this->status, ['pending', 'confirmed']);
+    }
+
+    public function canBeRefunded(): bool
+    {
+        // Can refund if delivered or cancelled and payment was made online
+        return in_array($this->status, ['delivered', 'cancelled'])
+            && $this->payment_status === 'paid'
+            && is_null($this->refunded_at);
+    }
+
+    public function getAmountPaidAttribute(): float
+    {
+        // The actual amount the customer paid = total - exchange_discount
+        // (exchange discount reduces what they pay upfront)
+        return max(0, (float)$this->total);
     }
 }

@@ -26,11 +26,21 @@ class CartController extends Controller
             'quantity'       => 'required|integer|min:1|max:10',
             'variant_id'     => 'nullable|exists:product_variants,id',
             'selected_color' => 'nullable|string|max:100',
+            'exchange_data'  => 'nullable|string', // JSON string from Alpine.js
         ]);
 
         $product = Product::findOrFail($request->product_id);
-        if (! $product->isInStock()) {
+        if (!$product->isInStock()) {
             return response()->json(['error' => 'Product is out of stock.'], 422);
+        }
+
+        // Decode exchange_data JSON string
+        $exchangeData = null;
+        if ($request->exchange_data) {
+            $decoded = json_decode($request->exchange_data, true);
+            if (json_last_error() === JSON_ERROR_NONE && !empty($decoded['brand'])) {
+                $exchangeData = $decoded;
+            }
         }
 
         if (auth()->check()) {
@@ -41,9 +51,11 @@ class CartController extends Controller
 
             if ($cart) {
                 $cart->increment('quantity', $request->quantity);
-                // Update color if newly provided
                 if ($request->selected_color) {
                     $cart->update(['selected_color' => $request->selected_color]);
+                }
+                if ($exchangeData) {
+                    $cart->update(['exchange_data' => $exchangeData]);
                 }
             } else {
                 Cart::create([
@@ -51,6 +63,7 @@ class CartController extends Controller
                     'product_id'     => $request->product_id,
                     'variant_id'     => $request->variant_id,
                     'selected_color' => $request->selected_color,
+                    'exchange_data'  => $exchangeData,
                     'quantity'       => $request->quantity,
                 ]);
             }
@@ -63,11 +76,15 @@ class CartController extends Controller
                 if ($request->selected_color) {
                     $sessionCart[$key]['selected_color'] = $request->selected_color;
                 }
+                if ($exchangeData) {
+                    $sessionCart[$key]['exchange_data'] = $exchangeData;
+                }
             } else {
                 $sessionCart[$key] = [
                     'product_id'     => $request->product_id,
                     'variant_id'     => $request->variant_id,
                     'selected_color' => $request->selected_color,
+                    'exchange_data'  => $exchangeData,
                     'quantity'       => $request->quantity,
                 ];
             }
@@ -117,7 +134,7 @@ class CartController extends Controller
         $request->validate(['code' => 'required|string']);
         $coupon = Coupon::where('code', strtoupper(trim($request->code)))->first();
 
-        if (! $coupon || ! $coupon->isValid()) {
+        if (!$coupon || !$coupon->isValid()) {
             return back()->with('error', 'Invalid or expired coupon code.');
         }
 
@@ -158,56 +175,57 @@ class CartController extends Controller
             'quantity'       => 'nullable|integer|min:1|max:10',
             'variant_id'     => 'nullable|exists:product_variants,id',
             'selected_color' => 'nullable|string|max:100',
+            'exchange_data'  => 'nullable|string', // JSON string from Alpine.js
         ]);
 
         $product = Product::findOrFail($request->product_id);
         $qty     = $request->quantity ?? 1;
 
-        if (! $product->isInStock()) {
+        if (!$product->isInStock()) {
             return redirect()->route('products.show', $product)
                 ->with('error', 'Product is out of stock.');
         }
 
-        if (auth()->check()) {
-            $cart = Cart::where('user_id', auth()->id())
-                        ->where('product_id', $request->product_id)
-                        ->where('variant_id', $request->variant_id)
-                        ->first();
-
-            if ($cart) {
-                $cart->increment('quantity', $qty);
-                if ($request->selected_color) {
-                    $cart->update(['selected_color' => $request->selected_color]);
-                }
-            } else {
-                Cart::create([
-                    'user_id'        => auth()->id(),
-                    'product_id'     => $request->product_id,
-                    'variant_id'     => $request->variant_id,
-                    'selected_color' => $request->selected_color,
-                    'quantity'       => $qty,
-                ]);
+        // Decode exchange_data JSON string
+        $exchangeData = null;
+        if ($request->exchange_data) {
+            $decoded = json_decode($request->exchange_data, true);
+            if (json_last_error() === JSON_ERROR_NONE && !empty($decoded['brand'])) {
+                $exchangeData = $decoded;
             }
-            return redirect()->route('checkout.index');
         }
 
-        $sessionCart = session()->get('cart', []);
-        $key = $request->product_id . '_' . $request->variant_id;
-        if (isset($sessionCart[$key])) {
-            $sessionCart[$key]['quantity'] += $qty;
-        } else {
-            $sessionCart[$key] = [
+        if (auth()->check()) {
+            // Clear existing cart and add only this item (Buy Now behaviour)
+            Cart::where('user_id', auth()->id())->delete();
+
+            Cart::create([
+                'user_id'        => auth()->id(),
                 'product_id'     => $request->product_id,
                 'variant_id'     => $request->variant_id,
                 'selected_color' => $request->selected_color,
+                'exchange_data'  => $exchangeData,
                 'quantity'       => $qty,
-            ];
+            ]);
+
+            return redirect()->route('checkout.index');
         }
+
+        // Guest — store in session and redirect to login
+        $sessionCart = session()->get('cart', []);
+        $key = $request->product_id . '_' . $request->variant_id;
+        $sessionCart[$key] = [
+            'product_id'     => $request->product_id,
+            'variant_id'     => $request->variant_id,
+            'selected_color' => $request->selected_color,
+            'exchange_data'  => $exchangeData,
+            'quantity'       => $qty,
+        ];
         session(['cart' => $sessionCart]);
         return redirect()->route('login')->with('info', 'Please log in to complete your purchase.');
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     public function getCartItems()
     {
@@ -223,6 +241,7 @@ class CartController extends Controller
             $cart->variant        = isset($item['variant_id']) ? ProductVariant::find($item['variant_id']) : null;
             $cart->quantity       = $item['quantity'];
             $cart->selected_color = $item['selected_color'] ?? null;
+            $cart->exchange_data  = $item['exchange_data'] ?? null;
             return $cart;
         })->filter(fn($item) => $item->product !== null);
     }
@@ -235,7 +254,7 @@ class CartController extends Controller
         // Calculate exchange discount from any cart item that has exchange data
         $exchangeDiscount = 0;
         foreach ($cartItems as $item) {
-            if ($item->exchange_data && !empty($item->exchange_data['condition'])) {
+            if (!empty($item->exchange_data['condition'])) {
                 $offer = \App\Models\ExchangeOffer::where('product_id', $item->product_id)
                     ->where('is_active', true)->first();
                 if ($offer) {

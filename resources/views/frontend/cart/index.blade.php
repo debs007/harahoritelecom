@@ -146,8 +146,14 @@
                     </div>
                     @if($totals['discount'] > 0)
                     <div class="flex justify-between text-green-600">
-                        <span>Coupon Discount</span>
+                        <span>🎟️ Coupon Discount</span>
                         <span class="font-semibold">−₹{{ number_format($totals['discount']) }}</span>
+                    </div>
+                    @endif
+                    @if(($totals['exchange_discount'] ?? 0) > 0)
+                    <div class="flex justify-between text-orange-600">
+                        <span class="flex items-center gap-1">🔄 Exchange Discount</span>
+                        <span class="font-semibold">−₹{{ number_format($totals['exchange_discount']) }}</span>
                     </div>
                     @endif
                     <div class="flex justify-between text-gray-500 text-xs">

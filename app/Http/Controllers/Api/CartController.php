@@ -13,7 +13,7 @@ class CartController extends Controller
 {
     public function index(Request $request)
     {
-        $items = Cart::with(['product.images', 'variant'])
+        $items = Cart::with(['product.images', 'product.exchangeOffer', 'variant'])
             ->where('user_id', auth()->id())
             ->get();
 
@@ -22,13 +22,26 @@ class CartController extends Controller
         $subtotal = $items->sum(fn($i) => $i->getSubtotal());
         $discount = $coupon['discount'] ?? 0;
 
+        // Calculate exchange discount from cart items that have exchange data
+        $exchangeDiscount = 0;
+        foreach ($items as $item) {
+            if ($item->exchange_data && !empty($item->exchange_data['condition'])) {
+                $offer = \App\Models\ExchangeOffer::where('product_id', $item->product_id)
+                    ->where('is_active', true)->first();
+                if ($offer) {
+                    $exchangeDiscount += $offer->calculateValue($item->exchange_data['condition']);
+                }
+            }
+        }
+
         return response()->json([
-            'items'    => $items->map(fn($item) => $this->formatItem($item))->values(),
-            'coupon'   => $coupon,
-            'subtotal' => (float) $subtotal,
-            'discount' => (float) $discount,
-            'total'    => (float) max(0, $subtotal - $discount),
-            'count'    => (int) $items->sum('quantity'),
+            'items'             => $items->map(fn($item) => $this->formatItem($item))->values(),
+            'coupon'            => $coupon,
+            'subtotal'          => (float) $subtotal,
+            'discount'          => (float) $discount,
+            'exchange_discount' => (float) $exchangeDiscount,
+            'total'             => (float) max(0, $subtotal - $discount - $exchangeDiscount),
+            'count'             => (int) $items->sum('quantity'),
         ]);
     }
 

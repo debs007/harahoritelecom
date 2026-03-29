@@ -231,10 +231,24 @@ class CartController extends Controller
     {
         $subtotal = $cartItems->sum(fn($item) => $item->getSubtotal());
         $discount = $coupon['discount'] ?? 0;
+
+        // Calculate exchange discount from any cart item that has exchange data
+        $exchangeDiscount = 0;
+        foreach ($cartItems as $item) {
+            if ($item->exchange_data && !empty($item->exchange_data['condition'])) {
+                $offer = \App\Models\ExchangeOffer::where('product_id', $item->product_id)
+                    ->where('is_active', true)->first();
+                if ($offer) {
+                    $exchangeDiscount += $offer->calculateValue($item->exchange_data['condition']);
+                }
+            }
+        }
+
         return [
-            'subtotal' => $subtotal,
-            'discount' => $discount,
-            'total'    => max(0, $subtotal - $discount),
+            'subtotal'          => $subtotal,
+            'discount'          => $discount,
+            'exchange_discount' => $exchangeDiscount,
+            'total'             => max(0, $subtotal - $discount - $exchangeDiscount),
         ];
     }
 

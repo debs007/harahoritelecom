@@ -34,7 +34,10 @@
 
         <div class="border-t border-gray-100 pt-4 mt-2 space-y-1.5 text-sm">
             @if($order->discount > 0)
-                <div class="flex justify-between text-green-600"><span>Discount</span><span>−₹{{ number_format($order->discount) }}</span></div>
+                <div class="flex justify-between text-green-600"><span>🎟️ Coupon Discount</span><span>−₹{{ number_format($order->discount) }}</span></div>
+            @endif
+            @if($order->exchange_discount > 0)
+                <div class="flex justify-between text-orange-600"><span>🔄 Exchange Discount</span><span>−₹{{ number_format($order->exchange_discount) }}</span></div>
             @endif
             <div class="flex justify-between text-gray-500"><span>Shipping</span><span>{{ $order->shipping_charge > 0 ? '₹'.number_format($order->shipping_charge) : 'FREE' }}</span></div>
             <div class="flex justify-between font-black text-gray-900 text-base pt-1 border-t border-gray-100">

@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/{order}',               [OrderController::class, 'show'])->name('show');
         Route::get('/{order}/track',         [OrderController::class, 'track'])->name('track');
         Route::post('/{order}/cancel',       [OrderController::class, 'cancel'])->name('cancel');
+        Route::post('/{order}/refund',       [OrderController::class, 'claimRefund'])->name('refund');
         Route::post('/{order}/review/{item}',[ReviewController::class, 'store'])->name('review');
     });
 

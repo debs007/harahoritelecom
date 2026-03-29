@@ -51,7 +51,6 @@ class OrderController extends Controller
             'address_id'       => 'required|exists:addresses,id',
             'shipping_zone_id' => 'required|exists:shipping_zones,id',
             'payment_method'   => 'required|in:cod,razorpay',
-            'exchange_data'    => 'nullable|array',
         ]);
 
         $address      = auth()->user()->addresses()->findOrFail($request->address_id);
@@ -68,14 +67,19 @@ class OrderController extends Controller
 
         $subtotal         = $cartItems->sum(fn($i) => $i->getSubtotal());
         $discount         = $coupon ? $coupon->calculateDiscount($subtotal) : 0;
-        $exchangeData     = $request->exchange_data;
-        $exchangeDiscount = 0;
 
-        if ($exchangeData && !empty($exchangeData['brand'])) {
-            $cartItem = $cartItems->first(fn($i) => !empty($i->exchange_data));
-            $offer    = ExchangeOffer::where('product_id', ($cartItem ?? $cartItems->first())->product_id)
+        // Read exchange data from cart items (stored when user added product with exchange)
+        $exchangeData     = null;
+        $exchangeDiscount = 0;
+        $cartItemWithExchange = $cartItems->first(fn($i) => !empty($i->exchange_data));
+        if ($cartItemWithExchange) {
+            $exchangeData = $cartItemWithExchange->exchange_data;
+        }
+
+        if ($exchangeData && !empty($exchangeData['brand']) && !empty($exchangeData['condition'])) {
+            $offer = ExchangeOffer::where('product_id', $cartItemWithExchange->product_id)
                 ->where('is_active', true)->first();
-            if ($offer && !empty($exchangeData['condition'])) {
+            if ($offer) {
                 $exchangeDiscount = $offer->calculateValue($exchangeData['condition']);
             }
         }
@@ -311,6 +315,9 @@ class OrderController extends Controller
                 : [],
             'tracking_number'  => $order->tracking_number,
             'courier_name'     => $order->courier_name,
+            'delivered_at'     => $order->delivered_at?->toISOString(),
+            'refund_reason'    => $order->refund_reason,
+            'refunded_at'      => $order->refunded_at?->toISOString(),
         ];
     }
 

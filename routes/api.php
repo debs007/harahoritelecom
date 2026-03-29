@@ -63,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders',                      [OrderController::class, 'store']);
     Route::get('/orders/{number}',              [OrderController::class, 'show']);
     Route::delete('/orders/{number}',           [OrderController::class, 'cancel']);
+    Route::post('/orders/{number}/refund',      [OrderController::class, 'claimRefund']);
     Route::post('/orders/razorpay/verify',      [OrderController::class, 'verifyPayment']);
     Route::get('/shipping-zones',               [OrderController::class, 'shippingZones']);
 

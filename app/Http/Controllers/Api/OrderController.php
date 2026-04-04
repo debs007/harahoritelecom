@@ -370,29 +370,32 @@ class OrderController extends Controller
         return $base;
     }
 
-    public function claimRefund(Request $request)
+    public function claimRefund(Request $request, $number)
 {
     $request->validate([
-        'order_id' => 'required|exists:orders,id',
-        'reason' => 'required|string',
+        'reason' => 'required|string|max:1000'
     ]);
 
-    $order = Order::find($request->order_id);
+    $order = Order::where('number', $number)->first();
 
     if (!$order) {
         return response()->json([
-            'status' => false,
             'message' => 'Order not found'
         ], 404);
     }
 
-    // Example status update
+    // prevent duplicate refund
+    if ($order->refund_status === 'requested') {
+        return response()->json([
+            'message' => 'Refund already requested'
+        ], 400);
+    }
+
     $order->refund_status = 'requested';
     $order->refund_reason = $request->reason;
     $order->save();
 
     return response()->json([
-        'status' => true,
         'message' => 'Refund request submitted successfully'
     ]);
 }

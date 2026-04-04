@@ -376,7 +376,7 @@ class OrderController extends Controller
         'reason' => 'required|string|max:1000'
     ]);
 
-    $order = Order::where('number', $number)->first();
+    $order = Order::where('order_number', $number)->first();
 
     if (!$order) {
         return response()->json([
@@ -385,13 +385,13 @@ class OrderController extends Controller
     }
 
     // prevent duplicate refund
-    if ($order->refund_status === 'requested') {
+    if ($order->status === 'requested') {
         return response()->json([
             'message' => 'Refund already requested'
         ], 400);
     }
 
-    $order->refund_status = 'requested';
+    $order->status = 'requested';
     $order->refund_reason = $request->reason;
     $order->save();
 

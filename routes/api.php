@@ -58,14 +58,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/wishlist',         [WishlistController::class, 'index']);
     Route::post('/wishlist/{slug}', [WishlistController::class, 'toggle']);
 
-    // Orders
-    Route::get('/orders',                       [OrderController::class, 'index']);
-    Route::post('/orders',                      [OrderController::class, 'store']);
-    Route::get('/orders/{number}',              [OrderController::class, 'show']);
-    Route::delete('/orders/{number}',           [OrderController::class, 'cancel']);
-    Route::post('/orders/{number}/refund',      [OrderController::class, 'claimRefund']);
-    Route::post('/orders/razorpay/verify',      [OrderController::class, 'verifyPayment']);
-    Route::get('/shipping-zones',               [OrderController::class, 'shippingZones']);
+    // Orders — IMPORTANT: fixed routes before parameterised ones
+    Route::get('/orders',                           [OrderController::class, 'index']);
+    Route::post('/orders',                          [OrderController::class, 'store']);
+    Route::post('/orders/razorpay/verify',          [OrderController::class, 'verifyPayment']); // ← BEFORE {number}
+    Route::get('/shipping-zones',                   [OrderController::class, 'shippingZones']);
+    Route::get('/orders/{number}',                  [OrderController::class, 'show']);
+    Route::delete('/orders/{number}',               [OrderController::class, 'cancel']);
+    Route::post('/orders/{number}/refund',          [OrderController::class, 'claimRefund']);   // ← AFTER fixed routes
 
     // Reviews
     Route::post('/products/{slug}/reviews',     [ReviewController::class, 'store']);

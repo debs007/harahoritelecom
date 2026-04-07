@@ -8,6 +8,7 @@
          'ram'              => $v->ram,
          'storage'          => $v->storage,
          'price'            => $v->price,
+         'sale_price'       => $v->sale_price ?? null,
          'stock'            => $v->stock,
          'sku'              => $v->sku,
          'available_colors' => $v->available_colors ?? [],
@@ -16,7 +17,7 @@
     <div class="flex items-center justify-between mb-4">
         <div>
             <h3 class="font-semibold text-gray-800">RAM & Storage Variants</h3>
-            <p class="text-xs text-gray-400 mt-0.5">Each variant can have different colors, price and stock</p>
+            <p class="text-xs text-gray-400 mt-0.5">Each variant can have different colors, price, sale price and stock. Click "Preview specs" to sync RAM/Storage to the specs panel above.</p>
         </div>
         <button type="button" x-on:click="addRow()"
                 class="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition">
@@ -31,8 +32,17 @@
         <div class="border border-gray-200 rounded-xl p-3 bg-gray-50" id="existing-variant-{{ $variant->id }}">
             <div class="flex items-center justify-between mb-2">
                 <p class="text-xs font-bold text-gray-700">
-                    {{ $variant->ram }} + {{ $variant->storage }} — ₹{{ number_format($variant->price) }}
-                    @if($variant->stock <= 0)<span class="badge badge-red ml-2 text-xs">Out of Stock</span>@else<span class="badge badge-green ml-2 text-xs">{{ $variant->stock }} in stock</span>@endif
+                    {{ $variant->ram }} + {{ $variant->storage }}
+                    — MRP ₹{{ number_format($variant->price) }}
+                    @if($variant->sale_price)
+                        <span class="text-green-600">· Sale ₹{{ number_format($variant->sale_price) }}</span>
+                        <span class="badge badge-green ml-1 text-xs">{{ round((1 - $variant->sale_price / $variant->price) * 100) }}% OFF</span>
+                    @endif
+                    @if($variant->stock <= 0)
+                        <span class="badge badge-red ml-2 text-xs">Out of Stock</span>
+                    @else
+                        <span class="badge badge-green ml-2 text-xs">{{ $variant->stock }} in stock</span>
+                    @endif
                 </p>
                 <button type="button" onclick="deleteVariant({{ $variant->id }})"
                         class="text-xs text-red-400 hover:text-red-600 font-semibold">Delete</button>
@@ -54,40 +64,71 @@
     {{-- New variant rows (Alpine dynamic) --}}
     <div class="space-y-3">
         <template x-for="(row, i) in newRows" :key="i">
-            <div class="border-2 border-indigo-200 rounded-xl p-4 bg-indigo-50/50">
+            <div class="border-2 rounded-xl p-4 transition-all"
+                 :class="activeVariantIndex === i ? 'border-indigo-400 bg-indigo-50/50' : 'border-indigo-200 bg-indigo-50/30'">
                 <div class="flex items-center justify-between mb-3">
-                    <p class="text-xs font-bold text-indigo-700">New Variant #<span x-text="i + 1"></span></p>
+                    <div class="flex items-center gap-2">
+                        <p class="text-xs font-bold text-indigo-700">New Variant #<span x-text="i + 1"></span></p>
+                        <button type="button"
+                                @click="previewVariant(i)"
+                                class="text-xs px-2 py-0.5 rounded-full transition font-semibold"
+                                :class="activeVariantIndex === i
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'">
+                            <span x-text="activeVariantIndex === i ? '✓ Previewing specs' : 'Preview specs'"></span>
+                        </button>
+                    </div>
                     <button type="button" x-on:click="removeRow(i)"
                             class="text-xs text-red-400 hover:text-red-600 font-semibold">Remove</button>
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                {{-- Row 1: RAM, Storage, MRP, Sale Price, Stock --}}
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
                     <div>
                         <label class="label text-xs">RAM *</label>
                         <input type="text" :name="'new_variants[' + i + '][ram]'"
-                               x-model="row.ram" class="input text-sm" placeholder="8GB">
+                               x-model="row.ram" class="input text-sm" placeholder="8GB"
+                               @input="if(activeVariantIndex===i) syncSpecPreview()">
                     </div>
                     <div>
                         <label class="label text-xs">Storage *</label>
                         <input type="text" :name="'new_variants[' + i + '][storage]'"
-                               x-model="row.storage" class="input text-sm" placeholder="128GB">
+                               x-model="row.storage" class="input text-sm" placeholder="128GB"
+                               @input="if(activeVariantIndex===i) syncSpecPreview()">
                     </div>
                     <div>
-                        <label class="label text-xs">Price (₹) *</label>
+                        <label class="label text-xs">MRP (₹) *</label>
                         <input type="number" :name="'new_variants[' + i + '][price]'"
                                x-model="row.price" class="input text-sm" placeholder="29999" min="0" step="0.01">
+                    </div>
+                    <div>
+                        <label class="label text-xs">Sale Price (₹) <span class="text-gray-400 font-normal">(opt.)</span></label>
+                        <input type="number" :name="'new_variants[' + i + '][sale_price]'"
+                               x-model="row.sale_price" class="input text-sm" placeholder="24999" min="0" step="0.01">
                     </div>
                     <div>
                         <label class="label text-xs">Stock *</label>
                         <input type="number" :name="'new_variants[' + i + '][stock]'"
                                x-model="row.stock" class="input text-sm" placeholder="50" min="0">
                     </div>
-                    <div class="col-span-2">
-                        <label class="label text-xs">SKU *</label>
-                        <input type="text" :name="'new_variants[' + i + '][sku]'"
-                               x-model="row.sku" class="input text-sm" :placeholder="'SKU-' + (i+1)">
-                    </div>
                 </div>
+
+                {{-- SKU --}}
+                <div class="mb-3">
+                    <label class="label text-xs">SKU *</label>
+                    <input type="text" :name="'new_variants[' + i + '][sku]'"
+                           x-model="row.sku" class="input text-sm" :placeholder="'SKU-' + (i+1)">
+                </div>
+
+                {{-- Discount badge --}}
+                <template x-if="row.price && row.sale_price && parseFloat(row.sale_price) < parseFloat(row.price)">
+                    <div class="mb-3">
+                        <span class="inline-flex items-center gap-1.5 text-xs font-bold bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
+                            🏷️ <span x-text="Math.round((1 - parseFloat(row.sale_price)/parseFloat(row.price))*100) + '% OFF'"></span>
+                            <span class="font-normal text-green-600">· Customer pays ₹<span x-text="parseInt(row.sale_price).toLocaleString('en-IN')"></span></span>
+                        </span>
+                    </div>
+                </template>
 
                 {{-- Colors for this variant --}}
                 <div>
@@ -95,27 +136,28 @@
                         <span class="text-gray-400 font-normal">(leave blank to show all product colors)</span>
                     </label>
 
-                    @if(count($product->colors ?? []) > 0)
-                    <div class="flex flex-wrap gap-2">
-                        @foreach($product->colors as $color)
-                        <label class="flex items-center gap-1.5 cursor-pointer">
-                            <input type="checkbox"
-                                   :name="'new_variants[' + i + '][available_colors][]'"
-                                   value="{{ $color }}"
-                                   x-on:change="toggleColor(i, '{{ $color }}')"
-                                   :checked="row.available_colors.includes('{{ $color }}')"
-                                   class="rounded border-gray-300 text-indigo-600">
-                            <span class="text-xs font-semibold text-gray-700 flex items-center gap-1">
-                                <span class="w-3 h-3 rounded-full inline-block border border-gray-300"
-                                      x-init="$el.style.background = colorDot('{{ $color }}')"></span>
-                                {{ $color }}
-                            </span>
-                        </label>
-                        @endforeach
-                    </div>
-                    @else
-                    <p class="text-xs text-gray-400">Add colors in the Specifications section first.</p>
-                    @endif
+                    <template x-if="productColors.length > 0">
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="color in productColors" :key="color">
+                                <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input type="checkbox"
+                                           :name="'new_variants[' + i + '][available_colors][]'"
+                                           :value="color"
+                                           x-on:change="toggleColor(i, color)"
+                                           :checked="row.available_colors.includes(color)"
+                                           class="rounded border-gray-300 text-indigo-600">
+                                    <span class="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                                        <span class="w-3 h-3 rounded-full inline-block border border-gray-300"
+                                              :style="`background:${colorDot(color)}`"></span>
+                                        <span x-text="color"></span>
+                                    </span>
+                                </label>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="productColors.length === 0">
+                        <p class="text-xs text-gray-400">Add colors in the Specifications section first.</p>
+                    </template>
                 </div>
             </div>
         </template>
@@ -163,23 +205,59 @@ function variantManager(existing, productColors) {
     return {
         newRows: [],
         productColors: productColors,
+        activeVariantIndex: null,
 
         addRow() {
             this.newRows.push({
-                ram: '', storage: '', price: '', stock: '', sku: '',
+                ram: '', storage: '', price: '', sale_price: '', stock: '', sku: '',
                 available_colors: [],
             });
         },
 
         removeRow(i) {
+            if (this.activeVariantIndex === i) {
+                this.activeVariantIndex = null;
+                this.syncSpecPreview();
+            } else if (this.activeVariantIndex !== null && this.activeVariantIndex > i) {
+                this.activeVariantIndex--;
+            }
             this.newRows.splice(i, 1);
+        },
+
+        previewVariant(i) {
+            if (this.activeVariantIndex === i) {
+                this.activeVariantIndex = null;
+            } else {
+                this.activeVariantIndex = i;
+            }
+            this.syncSpecPreview();
+        },
+
+        syncSpecPreview() {
+            // Update the spec RAM/Storage fields in the edit page
+            var ramEl     = document.getElementById('spec-ram');
+            var storageEl = document.getElementById('spec-storage');
+            if (!ramEl || !storageEl) return;
+
+            if (this.activeVariantIndex !== null && this.newRows[this.activeVariantIndex]) {
+                var row = this.newRows[this.activeVariantIndex];
+                ramEl.value     = row.ram     || ramEl.dataset.original || '';
+                storageEl.value = row.storage || storageEl.dataset.original || '';
+                ramEl.classList.add('ring-2','ring-indigo-400');
+                storageEl.classList.add('ring-2','ring-indigo-400');
+            } else {
+                ramEl.value     = ramEl.dataset.original     || '';
+                storageEl.value = storageEl.dataset.original || '';
+                ramEl.classList.remove('ring-2','ring-indigo-400');
+                storageEl.classList.remove('ring-2','ring-indigo-400');
+            }
         },
 
         toggleColor(rowIndex, color) {
             var row = this.newRows[rowIndex];
             var idx = row.available_colors.indexOf(color);
             if (idx === -1) { row.available_colors.push(color); }
-            else             { row.available_colors.splice(idx, 1); }
+            else            { row.available_colors.splice(idx, 1); }
         },
 
         colorDot(name) {

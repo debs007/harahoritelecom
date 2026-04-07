@@ -195,6 +195,7 @@ class ProductAdminController extends Controller
                 'ram'              => $row['ram'],
                 'storage'          => $row['storage'],
                 'price'            => $row['price'] ?? $product->price,
+                'sale_price'       => !empty($row['sale_price']) ? $row['sale_price'] : null,
                 'stock'            => $row['stock'] ?? 0,
                 'sku'              => $row['sku'],
                 'available_colors' => array_values(array_filter($colors)),

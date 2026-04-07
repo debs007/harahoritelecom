@@ -119,7 +119,8 @@
 
             {{-- Specifications --}}
             <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 class="font-semibold text-gray-800 mb-4">Phone Specifications</h3>
+                <h3 class="font-semibold text-gray-800 mb-1">Phone Specifications</h3>
+                <p class="text-xs text-gray-400 mb-4">Click <strong>Preview specs</strong> on a variant below to reflect its RAM & Storage here.</p>
                 <div class="grid grid-cols-2 gap-4">
                     @php $specs = [
                         ['display_size','Display Size','6.7"'],
@@ -136,9 +137,23 @@
                     @foreach($specs as [$field, $label, $placeholder])
                     <div>
                         <label class="label">{{ $label }}</label>
+                        @if($field === 'ram')
+                        <input type="text" name="{{ $field }}"
+                               id="spec-ram"
+                               value="{{ old($field, $product->$field) }}"
+                               data-original="{{ old($field, $product->$field) }}"
+                               class="input" placeholder="{{ $placeholder }}">
+                        @elseif($field === 'storage')
+                        <input type="text" name="{{ $field }}"
+                               id="spec-storage"
+                               value="{{ old($field, $product->$field) }}"
+                               data-original="{{ old($field, $product->$field) }}"
+                               class="input" placeholder="{{ $placeholder }}">
+                        @else
                         <input type="text" name="{{ $field }}"
                                value="{{ old($field, $product->$field) }}"
                                class="input" placeholder="{{ $placeholder }}">
+                        @endif
                     </div>
                     @endforeach
                 </div>
@@ -276,8 +291,11 @@
                         <input type="file" id="edit-general-input"
                                name="general_images[]"
                                accept="image/*" multiple class="hidden"
-                               onchange="handlePreview(this, 'edit-general-preview', 'General')">
-                        <div id="edit-general-preview" class="flex flex-wrap gap-2 mt-3"></div>
+                               onchange="handlePreview(this, 'edit-general-preview', null)">
+                        <div id="edit-general-preview" class="flex flex-wrap gap-2 mt-3"
+                             ondragover="event.preventDefault()"
+                             ondrop="onDrop(event,'edit-general-preview')"></div>
+                        <p class="drag-hint hidden text-xs text-gray-400 mt-1.5">↔ Drag images to reorder — first image shown first in gallery</p>
                     </div>
 
                     {{-- Upload zone for each existing color --}}
@@ -302,7 +320,10 @@
                                accept="image/*" multiple class="hidden"
                                onchange="handleColorPreview(this, 'edit-color-preview-{{ $idx }}', '{{ $color }}')">
                         <input type="hidden" name="color_images[{{ $idx }}][color]" value="{{ $color }}">
-                        <div id="edit-color-preview-{{ $idx }}" class="flex flex-wrap gap-2 mt-3"></div>
+                        <div id="edit-color-preview-{{ $idx }}" class="flex flex-wrap gap-2 mt-3"
+                             ondragover="event.preventDefault()"
+                             ondrop="onDrop(event,'edit-color-preview-{{ $idx }}')"></div>
+                        <p class="drag-hint hidden text-xs text-gray-400 mt-1.5">↔ Drag images to reorder</p>
                     </div>
                     @endforeach
 
@@ -332,7 +353,10 @@
                             <input type="hidden"
                                    :name="'color_images[' + ({{ count($existingColors) }} + i) + '][color]'"
                                    :value="color">
-                            <div :id="'new-color-preview-' + i" class="flex flex-wrap gap-2 mt-3"></div>
+                            <div :id="'new-color-preview-' + i" class="flex flex-wrap gap-2 mt-3"
+                                 ondragover="event.preventDefault()"
+                                 :ondrop="'onDrop(event,\'new-color-preview-\' + i)'"></div>
+                            <p class="drag-hint hidden text-xs text-gray-400 mt-1.5">↔ Drag images to reorder</p>
                         </div>
                     </template>
                 </div>
@@ -443,6 +467,14 @@
 @endsection
 
 @push('scripts')
+<style>
+.img-thumb-wrap { position:relative; cursor:grab; user-select:none; display:inline-block; }
+.img-thumb-wrap:active { cursor:grabbing; }
+.img-thumb-wrap.drag-over { outline:2px dashed #6366f1; border-radius:10px; }
+.img-thumb-wrap img { display:block; width:80px; height:80px; object-fit:cover; border-radius:10px; pointer-events:none; }
+.img-thumb-wrap .remove-btn { position:absolute; top:-6px; right:-6px; background:#ef4444; color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:11px; line-height:18px; text-align:center; cursor:pointer; font-weight:bold; z-index:10; }
+.img-thumb-wrap .order-badge { position:absolute; bottom:2px; left:2px; background:rgba(0,0,0,.55); color:#fff; font-size:9px; padding:1px 5px; border-radius:4px; font-weight:bold; }
+</style>
 <script>
 function previewThumb(input) {
     if (input.files && input.files[0]) {
@@ -454,29 +486,114 @@ function previewThumb(input) {
     }
 }
 
-function handlePreview(input, containerId, label) {
-    var container = document.getElementById(containerId);
-    if (!container) return;
+// ─── Drag-to-reorder image preview (shared by general + color zones) ────────
+var imageLists = {};
+
+function handlePreview(input, containerId, color) {
+    if (!input.files || input.files.length === 0) return;
+    if (!imageLists[containerId]) imageLists[containerId] = [];
     Array.from(input.files).forEach(function(file) {
-        var div = document.createElement('div');
-        div.className = 'relative';
-        div.innerHTML = '<img src="' + URL.createObjectURL(file) + '" class="w-20 h-20 object-cover rounded-xl border-2 border-indigo-300">'
-            + '<span class="absolute bottom-0 left-0 right-0 text-center bg-indigo-700/80 text-white text-xs py-0.5 rounded-b-xl">New</span>';
-        container.appendChild(div);
+        imageLists[containerId].push({ file: file, blobUrl: URL.createObjectURL(file) });
     });
+    renderNewPreviews(containerId, color, input);
 }
 
 function handleColorPreview(input, containerId, color) {
+    if (!imageLists[containerId]) imageLists[containerId] = [];
+    Array.from(input.files).forEach(function(file) {
+        imageLists[containerId].push({ file: file, blobUrl: URL.createObjectURL(file) });
+    });
+    renderNewPreviews(containerId, color, input);
+}
+
+function renderNewPreviews(containerId, color, inputRef) {
     var container = document.getElementById(containerId);
     if (!container) return;
+    if (container && inputRef) container._inputRef = inputRef;
+
     container.innerHTML = '';
-    Array.from(input.files).forEach(function(file) {
-        var div = document.createElement('div');
-        div.className = 'relative';
-        div.innerHTML = '<img src="' + URL.createObjectURL(file) + '" class="w-20 h-20 object-cover rounded-xl border-2 border-indigo-300">'
-            + '<span class="absolute bottom-0 left-0 right-0 text-center bg-indigo-700/80 text-white text-xs py-0.5 rounded-b-xl truncate px-1">' + color + '</span>';
-        container.appendChild(div);
+    var list = imageLists[containerId] || [];
+    list.forEach(function(item, idx) {
+        var wrap = document.createElement('div');
+        wrap.className = 'img-thumb-wrap';
+        wrap.draggable = true;
+        wrap.dataset.index = idx;
+
+        var img = document.createElement('img');
+        img.src = item.blobUrl;
+        img.className = 'w-20 h-20 object-cover rounded-xl border-2 border-indigo-300';
+        img.style.pointerEvents = 'none';
+
+        var badge = document.createElement('span');
+        badge.className = 'order-badge';
+        badge.textContent = '#' + (idx + 1);
+
+        var lbl = document.createElement('span');
+        lbl.style.cssText = 'position:absolute;bottom:18px;left:0;right:0;text-align:center;background:rgba(79,70,229,.75);color:#fff;font-size:9px;padding:1px 4px;font-weight:600';
+        lbl.textContent = 'New';
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'remove-btn';
+        btn.textContent = '×';
+        btn.onclick = function() {
+            imageLists[containerId].splice(idx, 1);
+            renderNewPreviews(containerId, color, container._inputRef);
+            syncInput(containerId, container._inputRef);
+        };
+
+        wrap.appendChild(img);
+        wrap.appendChild(badge);
+        wrap.appendChild(lbl);
+        wrap.appendChild(btn);
+        container.appendChild(wrap);
+
+        wrap.addEventListener('dragstart', function(e) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', JSON.stringify({ containerId: containerId, index: idx, color: color || '' }));
+            wrap.style.opacity = '0.4';
+        });
+        wrap.addEventListener('dragend', function() { wrap.style.opacity = '1'; });
+        wrap.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        });
     });
+
+    syncInput(containerId, inputRef);
+
+    // Show hint
+    if (list.length > 1) {
+        var hint = container.nextElementSibling;
+        if (hint && hint.classList.contains('drag-hint')) hint.classList.remove('hidden');
+    }
+}
+
+function onDrop(e, containerId) {
+    e.preventDefault();
+    var raw = e.dataTransfer.getData('text/plain');
+    if (!raw) return;
+    var data = JSON.parse(raw);
+    if (data.containerId !== containerId) return;
+    var target = e.target.closest('.img-thumb-wrap');
+    if (!target) return;
+    var fromIdx = parseInt(data.index);
+    var toIdx   = parseInt(target.dataset.index);
+    if (fromIdx === toIdx) return;
+    var list = imageLists[containerId];
+    var moved = list.splice(fromIdx, 1)[0];
+    list.splice(toIdx, 0, moved);
+    var container = document.getElementById(containerId);
+    renderNewPreviews(containerId, data.color, container ? container._inputRef : null);
+}
+
+function syncInput(containerId, inputRef) {
+    if (!inputRef) return;
+    try {
+        var dt = new DataTransfer();
+        (imageLists[containerId] || []).forEach(function(item) { dt.items.add(item.file); });
+        inputRef.files = dt.files;
+    } catch(e) {}
 }
 
 function deleteImage(imageId) {

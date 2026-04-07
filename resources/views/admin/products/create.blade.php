@@ -66,7 +66,7 @@
 
             {{-- Pricing & Stock --}}
             <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 class="font-semibold text-gray-800 mb-4">Pricing & Inventory</h3>
+                <h3 class="font-semibold text-gray-800 mb-4">Pricing & Inventory <span class="text-xs text-gray-400 font-normal">(base / fallback values)</span></h3>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
                         <label class="label">MRP (₹) *</label>
@@ -91,15 +91,53 @@
 
             {{-- Specifications --}}
             <div class="bg-white rounded-xl border border-gray-200 p-5">
-                <h3 class="font-semibold text-gray-800 mb-4">Phone Specifications</h3>
+                <h3 class="font-semibold text-gray-800 mb-1">Phone Specifications</h3>
+                <p class="text-xs text-gray-400 mb-4">These are the <strong>base/default specs</strong>. When you select a storage variant below, RAM & Storage fields here update automatically.</p>
                 <div class="grid grid-cols-2 gap-4">
-                    @php $specs = [['display_size','Display Size','6.7"'],['display_type','Display Type','AMOLED 120Hz'],['processor','Processor','Snapdragon 8 Gen 3'],['ram','RAM','12GB'],['storage','Storage','256GB'],['battery','Battery','5000mAh'],['camera_main','Main Camera','50MP'],['camera_front','Front Camera','16MP'],['os','OS','Android 14'],['network','Network','5G']] @endphp
-                    @foreach($specs as [$field,$label,$placeholder])
                     <div>
-                        <label class="label">{{ $label }}</label>
-                        <input type="text" name="{{ $field }}" value="{{ old($field) }}" class="input" placeholder="{{ $placeholder }}">
+                        <label class="label">Display Size</label>
+                        <input type="text" name="display_size" value="{{ old('display_size') }}" class="input" placeholder='6.7"'>
                     </div>
-                    @endforeach
+                    <div>
+                        <label class="label">Display Type</label>
+                        <input type="text" name="display_type" value="{{ old('display_type') }}" class="input" placeholder="AMOLED 120Hz">
+                    </div>
+                    <div>
+                        <label class="label">Processor</label>
+                        <input type="text" name="processor" value="{{ old('processor') }}" class="input" placeholder="Snapdragon 8 Gen 3">
+                    </div>
+                    <div>
+                        <label class="label">RAM</label>
+                        <input type="text" name="ram" id="spec-ram" value="{{ old('ram') }}" class="input" placeholder="12GB"
+                               x-ref="specRam" :value="activeVariantRam || $refs.specRam.dataset.original"
+                               @input="$refs.specRam.dataset.original = $event.target.value">
+                    </div>
+                    <div>
+                        <label class="label">Storage</label>
+                        <input type="text" name="storage" id="spec-storage" value="{{ old('storage') }}" class="input" placeholder="256GB"
+                               x-ref="specStorage" :value="activeVariantStorage || $refs.specStorage.dataset.original"
+                               @input="$refs.specStorage.dataset.original = $event.target.value">
+                    </div>
+                    <div>
+                        <label class="label">Battery</label>
+                        <input type="text" name="battery" value="{{ old('battery') }}" class="input" placeholder="5000mAh">
+                    </div>
+                    <div>
+                        <label class="label">Main Camera</label>
+                        <input type="text" name="camera_main" value="{{ old('camera_main') }}" class="input" placeholder="50MP">
+                    </div>
+                    <div>
+                        <label class="label">Front Camera</label>
+                        <input type="text" name="camera_front" value="{{ old('camera_front') }}" class="input" placeholder="16MP">
+                    </div>
+                    <div>
+                        <label class="label">OS</label>
+                        <input type="text" name="os" value="{{ old('os') }}" class="input" placeholder="Android 14">
+                    </div>
+                    <div>
+                        <label class="label">Network</label>
+                        <input type="text" name="network" value="{{ old('network') }}" class="input" placeholder="5G">
+                    </div>
                 </div>
 
                 {{-- Colors --}}
@@ -129,12 +167,134 @@
                 </div>
             </div>
 
+            {{-- ══ VARIANTS SECTION ══ --}}
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="font-semibold text-gray-800">RAM & Storage Variants</h3>
+                        <p class="text-xs text-gray-400 mt-0.5">Each variant can have different colors, price, selling price and stock. Selecting a variant previews its specs above.</p>
+                    </div>
+                    <button type="button" @click="addVariantRow()"
+                            class="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 transition">
+                        + Add Variant
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <template x-for="(row, i) in variantRows" :key="i">
+                        <div class="border-2 rounded-xl p-4 transition-all"
+                             :class="activeVariantIndex === i ? 'border-indigo-400 bg-indigo-50/50' : 'border-gray-200 bg-gray-50/50'">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <p class="text-xs font-bold text-indigo-700">Variant #<span x-text="i + 1"></span></p>
+                                    <button type="button"
+                                            @click="previewVariant(i)"
+                                            class="text-xs px-2 py-0.5 rounded-full transition font-semibold"
+                                            :class="activeVariantIndex === i
+                                                ? 'bg-indigo-600 text-white'
+                                                : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'">
+                                        <span x-text="activeVariantIndex === i ? '✓ Previewing specs' : 'Preview specs'"></span>
+                                    </button>
+                                </div>
+                                <button type="button" @click="removeVariantRow(i)"
+                                        class="text-xs text-red-400 hover:text-red-600 font-semibold">Remove</button>
+                            </div>
+
+                            {{-- Row 1: RAM, Storage, MRP, Sale Price, Stock --}}
+                            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
+                                <div>
+                                    <label class="label text-xs">RAM *</label>
+                                    <input type="text" :name="'new_variants[' + i + '][ram]'"
+                                           x-model="row.ram" class="input text-sm" placeholder="8GB"
+                                           @input="if(activeVariantIndex===i) activeVariantRam=row.ram">
+                                </div>
+                                <div>
+                                    <label class="label text-xs">Storage *</label>
+                                    <input type="text" :name="'new_variants[' + i + '][storage]'"
+                                           x-model="row.storage" class="input text-sm" placeholder="128GB"
+                                           @input="if(activeVariantIndex===i) activeVariantStorage=row.storage">
+                                </div>
+                                <div>
+                                    <label class="label text-xs">MRP (₹) *</label>
+                                    <input type="number" :name="'new_variants[' + i + '][price]'"
+                                           x-model="row.price" class="input text-sm" placeholder="29999" min="0" step="0.01">
+                                </div>
+                                <div>
+                                    <label class="label text-xs">
+                                        Sale Price (₹)
+                                        <span class="text-gray-400 font-normal">(optional)</span>
+                                    </label>
+                                    <input type="number" :name="'new_variants[' + i + '][sale_price]'"
+                                           x-model="row.sale_price" class="input text-sm" placeholder="24999" min="0" step="0.01">
+                                </div>
+                                <div>
+                                    <label class="label text-xs">Stock *</label>
+                                    <input type="number" :name="'new_variants[' + i + '][stock]'"
+                                           x-model="row.stock" class="input text-sm" placeholder="50" min="0">
+                                </div>
+                            </div>
+
+                            {{-- Row 2: SKU full-width --}}
+                            <div class="mb-3">
+                                <label class="label text-xs">SKU *</label>
+                                <input type="text" :name="'new_variants[' + i + '][sku]'"
+                                       x-model="row.sku" class="input text-sm" :placeholder="'SKU-' + (i+1)">
+                            </div>
+
+                            {{-- Discount badge preview --}}
+                            <template x-if="row.price && row.sale_price && parseFloat(row.sale_price) < parseFloat(row.price)">
+                                <div class="mb-3">
+                                    <span class="inline-flex items-center gap-1.5 text-xs font-bold bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
+                                        🏷️ <span x-text="Math.round((1 - parseFloat(row.sale_price)/parseFloat(row.price))*100) + '% OFF'"></span>
+                                        <span class="font-normal text-green-600">· Customer pays ₹<span x-text="parseInt(row.sale_price).toLocaleString('en-IN')"></span></span>
+                                    </span>
+                                </div>
+                            </template>
+
+                            {{-- Colors for this variant --}}
+                            <div>
+                                <label class="label text-xs mb-2">Available Colors
+                                    <span class="text-gray-400 font-normal">(leave blank = all product colors)</span>
+                                </label>
+                                <template x-if="colors.length > 0">
+                                    <div class="flex flex-wrap gap-2">
+                                        <template x-for="color in colors" :key="color">
+                                            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                                                <input type="checkbox"
+                                                       :name="'new_variants[' + i + '][available_colors][]'"
+                                                       :value="color"
+                                                       @change="toggleVariantColor(i, color)"
+                                                       :checked="row.available_colors.includes(color)"
+                                                       class="rounded border-gray-300 text-indigo-600">
+                                                <span class="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                                                    <span class="w-3 h-3 rounded-full inline-block border border-gray-200 shadow-sm"
+                                                          :style="`background:${colorDot(color)}`"></span>
+                                                    <span x-text="color"></span>
+                                                </span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="colors.length === 0">
+                                    <p class="text-xs text-gray-400 italic">Add colors in Specifications above first.</p>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div x-show="variantRows.length === 0"
+                     class="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 text-sm">
+                    No variants yet. Click <strong>+ Add Variant</strong> to add RAM & Storage options.
+                </div>
+            </div>
+
             {{-- IMAGE UPLOAD SECTION --}}
             <div class="bg-white rounded-xl border border-gray-200 p-5">
                 <div class="flex items-start justify-between mb-4">
                     <div>
                         <h3 class="font-semibold text-gray-800">Product Images</h3>
-                        <p class="text-xs text-gray-400 mt-0.5">Upload color-specific images for a premium carousel experience</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Upload color-specific images · drag thumbnails to reorder</p>
                     </div>
                     <span class="badge badge-indigo text-xs">Amazon-style</span>
                 </div>
@@ -151,8 +311,16 @@
                         <p class="text-sm text-gray-600 font-medium">Drop general images here or click to browse</p>
                         <p class="text-xs text-gray-400 mt-0.5">Shown when no color is selected</p>
                     </div>
-                    <input type="file" id="general-input" name="general_images[]" accept="image/*" multiple class="hidden" onchange="handlePreview(this,'general-preview','General')">
-                    <div id="general-preview" class="flex flex-wrap gap-2 mt-3"></div>
+                    <input type="file" id="general-input" name="general_images[]" accept="image/*" multiple class="hidden"
+                           onchange="handlePreview(this,'general-preview','general',null)">
+                    {{-- Drag-to-reorder preview strip --}}
+                    <div id="general-preview"
+                         class="flex flex-wrap gap-2 mt-3"
+                         ondragover="event.preventDefault()"
+                         ondrop="onDrop(event,'general-preview')"></div>
+                    <p class="text-xs text-gray-400 mt-1.5 hidden" id="general-hint">
+                        ↔ Drag images to reorder — first image will be shown first in gallery
+                    </p>
                 </div>
 
                 {{-- Color-specific upload zones --}}
@@ -171,15 +339,22 @@
                                     <p class="text-sm text-gray-500">
                                         📸 Upload images for <strong x-text="color"></strong>
                                     </p>
-                                    <p class="text-xs text-gray-400 mt-0.5">Multiple files · PNG, JPG, WEBP</p>
+                                    <p class="text-xs text-gray-400 mt-0.5">Multiple files · PNG, JPG, WEBP · Drag to reorder</p>
                                 </div>
                                 <input type="file"
                                        :id="`color-input-${i}`"
                                        :name="`color_images[${i}][files][]`"
                                        accept="image/*" multiple class="hidden"
-                                       :onchange="`handleColorPreview(this,'color-preview-${i}','` + color + `')`">
+                                       :onchange="`handlePreview(this,'color-preview-${i}','color','` + color + `')`">
                                 <input type="hidden" :name="`color_images[${i}][color]`" :value="color">
-                                <div :id="`color-preview-${i}`" class="flex flex-wrap gap-2 mt-3"></div>
+                                {{-- Drag-to-reorder preview strip --}}
+                                <div :id="`color-preview-${i}`"
+                                     class="flex flex-wrap gap-2 mt-3"
+                                     ondragover="event.preventDefault()"
+                                     :ondrop="`onDrop(event,'color-preview-${i}')`"></div>
+                                <p class="text-xs text-gray-400 mt-1.5 hidden" :id="`color-hint-${i}`">
+                                    ↔ Drag images to reorder
+                                </p>
                             </div>
                         </div>
                     </template>
@@ -191,6 +366,32 @@
                         <p class="text-sm text-gray-400">Add colors in the <strong>Specifications</strong> section above to get color-specific image upload zones here.</p>
                     </div>
                 </template>
+            </div>
+
+            {{-- Exchange Offer --}}
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="text-xl">🔄</span>
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Exchange Offer</h3>
+                        <p class="text-xs text-gray-400">Set the maximum exchange value for old phones</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="label">Max Exchange Value (₹)</label>
+                        <input type="number" name="exchange_max_value" value="{{ old('exchange_max_value', 0) }}"
+                               class="input" step="0.01" min="0" placeholder="0 to disable exchange offer">
+                        <p class="text-xs text-gray-400 mt-1">
+                            Actual value = max × condition multiplier (Excellent=100%, Good=75%, Fair=50%, Poor=25%)
+                        </p>
+                    </div>
+                    <div>
+                        <label class="label">Exchange Terms (optional)</label>
+                        <textarea name="exchange_terms" rows="3" class="input text-sm"
+                                  placeholder="e.g. Only phones in working condition accepted...">{{ old('exchange_terms') }}</textarea>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -250,12 +451,13 @@
 
             {{-- Tips --}}
             <div class="bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-200 rounded-xl p-4">
-                <h4 class="font-bold text-indigo-800 text-sm mb-2">💡 How color images work</h4>
+                <h4 class="font-bold text-indigo-800 text-sm mb-2">💡 Tips</h4>
                 <ul class="text-xs text-indigo-700 space-y-2">
                     <li class="flex gap-2"><span>🖼️</span><span><strong>General images</strong> show in carousel until a color is picked</span></li>
-                    <li class="flex gap-2"><span>🎨</span><span><strong>Color images</strong> replace the carousel instantly when customer picks that color</span></li>
-                    <li class="flex gap-2"><span>↩️</span><span>If a color has no images, falls back to general images</span></li>
-                    <li class="flex gap-2"><span>📱</span><span>Just like Amazon & Flipkart!</span></li>
+                    <li class="flex gap-2"><span>🎨</span><span><strong>Color images</strong> replace the carousel when customer picks that color</span></li>
+                    <li class="flex gap-2"><span>↔️</span><span>Drag thumbnails to <strong>reorder</strong> images within each color group</span></li>
+                    <li class="flex gap-2"><span>📦</span><span><strong>Variants</strong> let each RAM+Storage combo have its own price & sale price</span></li>
+                    <li class="flex gap-2"><span>👁️</span><span>Click <strong>Preview specs</strong> on a variant to see RAM/Storage reflected in specs above</span></li>
                 </ul>
             </div>
         </div>
@@ -264,7 +466,30 @@
 @endsection
 
 @push('scripts')
+<style>
+.img-thumb-wrap {
+    position: relative;
+    cursor: grab;
+    user-select: none;
+}
+.img-thumb-wrap:active { cursor: grabbing; }
+.img-thumb-wrap.drag-over { outline: 2px dashed #6366f1; border-radius: 8px; }
+.img-thumb-wrap img { display: block; width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid #e5e7eb; pointer-events: none; }
+.img-thumb-wrap .remove-btn {
+    position: absolute; top: -6px; right: -6px;
+    background: #ef4444; color: #fff; border: none; border-radius: 50%;
+    width: 18px; height: 18px; font-size: 11px; line-height: 18px; text-align: center;
+    cursor: pointer; font-weight: bold; z-index: 10;
+}
+.img-thumb-wrap .order-badge {
+    position: absolute; bottom: 2px; left: 2px;
+    background: rgba(0,0,0,.55); color: #fff;
+    font-size: 9px; padding: 1px 5px; border-radius: 4px; font-weight: bold;
+}
+</style>
+
 <script>
+// ─── Thumbnail preview ──────────────────────────────────────────────────────
 function previewThumb(input) {
     if (input.files && input.files[0]) {
         var img = document.getElementById('thumb-preview');
@@ -273,35 +498,146 @@ function previewThumb(input) {
     }
 }
 
-function handlePreview(input, containerId, label) {
-    var container = document.getElementById(containerId);
-    if (!container) return;
+// ─── Image preview + drag-to-reorder ───────────────────────────────────────
+// Each container stores an ordered array of { file, blobUrl } objects.
+// On drag-end we rebuild the hidden file input with a DataTransfer.
+var imageLists = {}; // containerId → [{ file, blobUrl }]
+
+function handlePreview(input, containerId, type, color) {
+    if (!input.files || input.files.length === 0) return;
+
+    if (!imageLists[containerId]) imageLists[containerId] = [];
+
     Array.from(input.files).forEach(function(file) {
-        var div = document.createElement('div');
-        div.className = 'relative';
-        div.innerHTML = '<img src="' + URL.createObjectURL(file) + '" class="w-20 h-20 object-cover rounded-lg border-2 border-gray-200">'
-            + '<span class="absolute bottom-1 left-0 right-0 text-center bg-black/60 text-white text-xs py-0.5 rounded-b-lg">' + label + '</span>';
-        container.appendChild(div);
+        imageLists[containerId].push({ file: file, blobUrl: URL.createObjectURL(file) });
     });
+
+    renderPreviews(containerId, type, color, input);
 }
 
-function handleColorPreview(input, containerId, color) {
+function renderPreviews(containerId, type, color, inputRef) {
     var container = document.getElementById(containerId);
     if (!container) return;
+
+    // Show drag hint
+    var hintId = containerId === 'general-preview' ? 'general-hint' : containerId.replace('preview','hint');
+    var hint = document.getElementById(hintId);
+    if (hint && imageLists[containerId] && imageLists[containerId].length > 1) {
+        hint.classList.remove('hidden');
+    }
+
     container.innerHTML = '';
-    Array.from(input.files).forEach(function(file) {
-        var div = document.createElement('div');
-        div.className = 'relative';
-        div.innerHTML = '<img src="' + URL.createObjectURL(file) + '" class="w-20 h-20 object-cover rounded-lg border-2 border-indigo-400">'
-            + '<span class="absolute bottom-1 left-0 right-0 text-center bg-indigo-700/80 text-white text-xs py-0.5 rounded-b-lg truncate px-1">' + color + '</span>';
-        container.appendChild(div);
+    var list = imageLists[containerId] || [];
+
+    list.forEach(function(item, idx) {
+        var wrap = document.createElement('div');
+        wrap.className = 'img-thumb-wrap';
+        wrap.draggable = true;
+        wrap.dataset.index = idx;
+        wrap.dataset.container = containerId;
+        wrap.dataset.type = type;
+        wrap.dataset.color = color || '';
+
+        var img = document.createElement('img');
+        img.src = item.blobUrl;
+
+        var badge = document.createElement('span');
+        badge.className = 'order-badge';
+        badge.textContent = '#' + (idx + 1);
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'remove-btn';
+        btn.textContent = '×';
+        btn.onclick = function() {
+            imageLists[containerId].splice(idx, 1);
+            renderPreviews(containerId, type, color, inputRef);
+            syncInput(containerId, inputRef);
+        };
+
+        wrap.appendChild(img);
+        wrap.appendChild(badge);
+        wrap.appendChild(btn);
+        container.appendChild(wrap);
+
+        // Drag events
+        wrap.addEventListener('dragstart', function(e) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                containerId: containerId, index: idx, type: type, color: color || ''
+            }));
+            wrap.style.opacity = '0.4';
+        });
+        wrap.addEventListener('dragend', function() {
+            wrap.style.opacity = '1';
+            container.querySelectorAll('.img-thumb-wrap').forEach(function(el){ el.classList.remove('drag-over'); });
+        });
+        wrap.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            container.querySelectorAll('.img-thumb-wrap').forEach(function(el){ el.classList.remove('drag-over'); });
+            wrap.classList.add('drag-over');
+        });
     });
+
+    syncInput(containerId, inputRef);
 }
 
+function onDrop(e, containerId) {
+    e.preventDefault();
+    var raw = e.dataTransfer.getData('text/plain');
+    if (!raw) return;
+
+    var data = JSON.parse(raw);
+    if (data.containerId !== containerId) return; // cross-container not supported
+
+    // Find drop target element
+    var target = e.target.closest('.img-thumb-wrap');
+    if (!target) return;
+
+    var fromIdx = parseInt(data.index);
+    var toIdx   = parseInt(target.dataset.index);
+    if (fromIdx === toIdx) return;
+
+    // Reorder
+    var list = imageLists[containerId];
+    var moved = list.splice(fromIdx, 1)[0];
+    list.splice(toIdx, 0, moved);
+
+    // Re-render — we need to recover inputRef
+    // We store a reference on the container element
+    var container = document.getElementById(containerId);
+    renderPreviews(containerId, data.type, data.color, container._inputRef);
+}
+
+function syncInput(containerId, inputRef) {
+    // Store inputRef on container so onDrop can recover it
+    var container = document.getElementById(containerId);
+    if (container && inputRef) container._inputRef = inputRef;
+
+    if (!inputRef) return;
+    try {
+        var dt = new DataTransfer();
+        (imageLists[containerId] || []).forEach(function(item) {
+            dt.items.add(item.file);
+        });
+        inputRef.files = dt.files;
+    } catch(e) {
+        // DataTransfer not supported in old browsers — images still previewed, order may not sync
+    }
+}
+
+// ─── Alpine.js component ────────────────────────────────────────────────────
 function productForm() {
     return {
         colors: [],
         newColor: '',
+
+        // Variants
+        variantRows: [],
+        activeVariantIndex: null,
+        activeVariantRam: '',
+        activeVariantStorage: '',
 
         addColor() {
             var c = this.newColor.trim();
@@ -313,6 +649,44 @@ function productForm() {
 
         removeColor(index) {
             this.colors.splice(index, 1);
+        },
+
+        addVariantRow() {
+            this.variantRows.push({
+                ram: '', storage: '', price: '', sale_price: '', stock: '', sku: '',
+                available_colors: [],
+            });
+        },
+
+        removeVariantRow(i) {
+            if (this.activeVariantIndex === i) {
+                this.activeVariantIndex = null;
+                this.activeVariantRam = '';
+                this.activeVariantStorage = '';
+            } else if (this.activeVariantIndex > i) {
+                this.activeVariantIndex--;
+            }
+            this.variantRows.splice(i, 1);
+        },
+
+        previewVariant(i) {
+            if (this.activeVariantIndex === i) {
+                // Toggle off
+                this.activeVariantIndex = null;
+                this.activeVariantRam = '';
+                this.activeVariantStorage = '';
+            } else {
+                this.activeVariantIndex = i;
+                this.activeVariantRam    = this.variantRows[i].ram;
+                this.activeVariantStorage = this.variantRows[i].storage;
+            }
+        },
+
+        toggleVariantColor(rowIndex, color) {
+            var row = this.variantRows[rowIndex];
+            var idx = row.available_colors.indexOf(color);
+            if (idx === -1) row.available_colors.push(color);
+            else             row.available_colors.splice(idx, 1);
         },
 
         colorDot(name) {

@@ -62,11 +62,20 @@
         <a href="{{ route('products.index') }}" class="text-violet-600 font-semibold text-sm hover:underline">View all →</a>
     </div>
     <div class="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
-        @php $catColors = ['from-violet-500 to-purple-600','from-fuchsia-500 to-pink-600','from-orange-500 to-amber-500','from-cyan-500 to-blue-600','from-green-500 to-emerald-600','from-red-500 to-rose-600'];
-             $catEmojis = ['📱','💻','🎧','🔌','📷','⌚']; @endphp
+        @php $catColors = ['from-violet-500 to-purple-600','from-fuchsia-500 to-pink-600','from-orange-500 to-amber-500','from-cyan-500 to-blue-600','from-green-500 to-emerald-600','from-red-500 to-rose-600']; @endphp
         @foreach($categories as $i => $cat)
         <a href="{{ route('products.category', $cat) }}" class="flex-shrink-0 group text-center">
-            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br {{ $catColors[$i % 6] }} flex items-center justify-center text-3xl shadow-md group-hover:scale-105 transition mb-2">{{ $catEmojis[$i % 6] }}</div>
+            <div class="w-20 h-20 rounded-2xl shadow-md group-hover:scale-105 transition mb-2 overflow-hidden border-2 border-white ring-1 ring-gray-100">
+                @if($cat->image)
+                    <img src="{{ Storage::url($cat->image) }}"
+                         alt="{{ $cat->name }}"
+                         class="w-full h-full object-cover">
+                @else
+                    <div class="w-full h-full bg-gradient-to-br {{ $catColors[$i % 6] }} flex items-center justify-center text-white text-2xl font-black">
+                        {{ strtoupper(substr($cat->name, 0, 1)) }}
+                    </div>
+                @endif
+            </div>
             <p class="text-xs font-bold text-gray-700 w-20 truncate">{{ $cat->name }}</p>
         </a>
         @endforeach

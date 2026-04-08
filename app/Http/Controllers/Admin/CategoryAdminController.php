@@ -45,9 +45,19 @@ class CategoryAdminController extends Controller
             'parent_id'   => 'nullable|exists:categories,id',
             'sort_order'  => 'nullable|integer',
             'is_active'   => 'nullable|boolean',
+            'image'       => 'nullable|image|max:2048',
         ]);
 
         $data['slug'] = Str::slug($request->name);
+
+        if ($request->hasFile('image')) {
+            // Delete old image from storage
+            if ($category->image) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($category->image);
+            }
+            $data['image'] = $request->file('image')->store('categories', 'public');
+        }
+
         $category->update($data);
         return back()->with('success', 'Category updated.');
     }

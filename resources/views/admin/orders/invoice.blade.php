@@ -386,7 +386,7 @@
     {{-- Thank you --}}
     <div class="thank-you">
         <h2>Thank you for your order! 🎉</h2>
-        <p>We appreciate your business. For support, contact us at support@harahoritelecom.net</p>
+        <p>We appreciate your business. For support, contact us at support@harahoritelecom.in</p>
     </div>
 
     {{-- Footer --}}

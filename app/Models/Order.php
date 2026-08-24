@@ -9,7 +9,7 @@ class Order extends Model
     protected $fillable = [
         'order_number', 'user_id', 'address_id', 'shipping_zone_id', 'coupon_id',
         'exchange_request_id',
-        'subtotal', 'discount', 'exchange_discount', 'shipping_charge', 'tax', 'total',
+        'subtotal', 'discount', 'exchange_discount', 'loyalty_discount', 'loyalty_points_used', 'shipping_charge', 'tax', 'total',
         'status', 'payment_method', 'payment_status', 'payment_id',
         'tracking_number', 'courier_name', 'notes',
         'confirmed_at', 'shipped_at', 'delivered_at',
@@ -25,6 +25,8 @@ class Order extends Model
         'subtotal'               => 'decimal:2',
         'discount'               => 'decimal:2',
         'exchange_discount'      => 'decimal:2',
+        'loyalty_discount'       => 'decimal:2',
+        'loyalty_points_used'    => 'integer',
         'shipping_charge'        => 'decimal:2',
         'refund_amount'          => 'decimal:2',
     ];

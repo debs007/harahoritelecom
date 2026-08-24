@@ -7,10 +7,12 @@
 
         <div class="text-center mb-8">
             <a href="{{ route('home') }}" class="inline-flex items-center gap-2 mb-6">
-                <div class="w-10 h-10 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-2xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2H7zm5 17a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                <div class="w-14 h-14 rounded-xl overflow-hidden">
+                    <img src="{{ asset('images/harahori.jpg') }}"
+                         class="w-full h-full object-cover"
+                         alt="Logo">
                 </div>
-                <span class="text-2xl font-black text-gray-900">Mobile<span class="text-violet-600">Shop</span></span>
+                <span class="text-2xl font-black text-gray-900">Harahori <span class="text-violet-600">Telecom</span></span>
             </a>
             <h1 class="text-2xl font-black text-gray-900">Create your account</h1>
             <p class="text-gray-500 mt-1">Join thousands of happy customers</p>

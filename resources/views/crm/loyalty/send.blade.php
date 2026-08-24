@@ -1,0 +1,38 @@
+@extends('crm.layouts.crm')
+@section('title','Send Loyalty Notification')
+@section('content')
+<div class="max-w-md mx-auto">
+    <a href="{{ route('crm.loyalty.index') }}" class="text-slate-400 hover:text-slate-700 text-sm mb-6 inline-block">← Back to Loyalty</a>
+    <div class="card text-center">
+        <div class="text-5xl mb-3">{{ $request->channel === 'whatsapp' ? '💬' : '📱' }}</div>
+        <h2 class="text-xl font-black text-slate-900 mb-1">Send via {{ ucfirst($request->channel) }}</h2>
+        <p class="text-sm text-slate-500 mb-4">To: <strong>{{ $user->name }}</strong> — {{ $user->phone }}</p>
+
+        {{-- Points summary --}}
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-4 text-left">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-2xl font-black text-yellow-700">{{ number_format($user->loyalty_points) }} pts</p>
+                    <p class="text-xs text-slate-500">@ ₹{{ $pointValue }} per point</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-black text-teal-600">₹{{ $inrValue }}</p>
+                    <p class="text-xs text-slate-500">Total INR value</p>
+                </div>
+            </div>
+        </div>
+
+        {{-- Message preview --}}
+        <div class="bg-slate-50 rounded-xl p-4 text-left mb-5">
+            <p class="text-xs text-slate-400 font-semibold mb-1.5">Message preview:</p>
+            <p class="text-sm text-slate-700 leading-relaxed">{{ $msg }}</p>
+        </div>
+
+        <a href="{{ $link }}" target="_blank"
+           class="inline-flex items-center justify-center gap-2 w-full {{ $request->channel === 'whatsapp' ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600' }} text-white font-bold py-3 rounded-xl transition text-sm">
+            {{ $request->channel === 'whatsapp' ? '💬 Open WhatsApp' : '📱 Open SMS' }}
+        </a>
+        <p class="text-xs text-slate-400 mt-3">Clicking will open {{ ucfirst($request->channel) }} with the message pre-filled</p>
+    </div>
+</div>
+@endsection

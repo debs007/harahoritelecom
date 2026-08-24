@@ -24,10 +24,12 @@ class Cart extends Model
 
     public function getSubtotal(): float
     {
-        $price = $this->variant
-            ? (float) $this->variant->price
-            : $this->product->getCurrentPrice();
-
-        return $price * $this->quantity;
+        if ($this->variant) {
+            $price = $this->variant->sale_price ?? $this->variant->price;
+        } else {
+            $price = $this->product->getCurrentPrice();
+        }
+    
+        return (float)$price * $this->quantity;
     }
 }

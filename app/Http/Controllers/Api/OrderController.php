@@ -33,6 +33,64 @@ class OrderController extends Controller
         ]);
     }
 
+    public function cancel(Request $request, string $orderNumber)
+    {
+        $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $order = \App\Models\Order::where('order_number', $orderNumber)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        $cancellableStatuses = ['pending', 'confirmed'];
+        if (!in_array($order->status, $cancellableStatuses)) {
+            return response()->json([
+                'message' => "This order cannot be cancelled. Current status: {$order->status}.",
+            ], 422);
+        }
+
+        DB::transaction(function () use ($order, $request) {
+            $order->update([
+                'status'              => 'cancelled',
+                'cancellation_reason' => $request->reason ?? 'Cancelled by customer',
+                'cancelled_at'        => now(),
+            ]);
+
+            $order->statusLogs()->create([
+                'status'     => 'cancelled',
+                'note'       => 'Order cancelled by customer. Reason: ' . ($request->reason ?? 'Not specified'),
+                'created_by' => auth()->id(),
+            ]);
+
+            foreach ($order->items as $item) {
+                if ($item->variant_id) {
+                    \App\Models\ProductVariant::where('id', $item->variant_id)
+                        ->increment('stock', $item->quantity);
+                } else {
+                    \App\Models\Product::where('id', $item->product_id)
+                        ->increment('stock', $item->quantity);
+                }
+            }
+
+            if ($order->payment_status === 'paid') {
+                $order->update([
+                    'refund_status' => 'pending',
+                    'refund_reason' => 'Order cancelled by customer',
+                ]);
+            }
+        });
+
+        return response()->json([
+            'message' => 'Order cancelled successfully.',
+            'order'   => [
+                'order_number' => $order->order_number,
+                'status'       => 'cancelled',
+                'status_label' => 'Cancelled',
+            ],
+        ]);
+    }
+
     // ── Single order ─────────────────────────────────────────────────────
     public function show($number)
     {
@@ -48,9 +106,10 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'address_id'       => 'required|exists:addresses,id',
-            'shipping_zone_id' => 'required|exists:shipping_zones,id',
-            'payment_method'   => 'required|in:cod,razorpay',
+            'address_id'               => 'required|exists:addresses,id',
+            'shipping_zone_id'         => 'required|exists:shipping_zones,id',
+            'payment_method'           => 'required|in:cod,razorpay',
+            'loyalty_points_to_redeem' => 'nullable|integer|min:0',
         ]);
 
         $address      = auth()->user()->addresses()->findOrFail($request->address_id);
@@ -68,7 +127,7 @@ class OrderController extends Controller
         $subtotal         = $cartItems->sum(fn($i) => $i->getSubtotal());
         $discount         = $coupon ? $coupon->calculateDiscount($subtotal) : 0;
 
-        // Read exchange data from cart items (stored when user added product with exchange)
+        // Read exchange data from cart items
         $exchangeData     = null;
         $exchangeDiscount = 0;
         $cartItemWithExchange = $cartItems->first(fn($i) => !empty($i->exchange_data));
@@ -84,13 +143,35 @@ class OrderController extends Controller
             }
         }
 
-        $shipping = $shippingZone->getRate($subtotal - $discount - $exchangeDiscount);
-        $total    = max(0, $subtotal - $discount - $exchangeDiscount + $shipping);
+        // ── Loyalty Points Redemption ─────────────────────────────────────
+        $user             = auth()->user();
+        $pointValue       = \App\Services\LoyaltyService::pointValue();
+        $maxRedemptionPct = (float) \App\Models\CrmSetting::get('loyalty_max_redemption', 10);
+        $requestedPoints  = (int) ($request->loyalty_points_to_redeem ?? 0);
+        $availablePoints  = $user->loyalty_points;
+
+        // Cap at user's actual balance
+        $pointsToRedeem  = min($requestedPoints, $availablePoints);
+
+        // Cap at max % of subtotal
+        $maxDiscount     = $subtotal * ($maxRedemptionPct / 100);
+        $loyaltyDiscount = min($pointsToRedeem * $pointValue, $maxDiscount);
+
+        // Recalculate exact points used after capping
+        $pointsToRedeem  = $loyaltyDiscount > 0
+            ? (int) ceil($loyaltyDiscount / $pointValue)
+            : 0;
+        $loyaltyDiscount = round($loyaltyDiscount, 2);
+        // ─────────────────────────────────────────────────────────────────
+
+        $shipping = $shippingZone->getRate($subtotal - $discount - $exchangeDiscount - $loyaltyDiscount);
+        $total    = max(0, $subtotal - $discount - $exchangeDiscount - $loyaltyDiscount + $shipping);
 
         $order = DB::transaction(function () use (
             $request, $cartItems, $shippingZone, $coupon,
             $subtotal, $discount, $shipping, $total,
-            $exchangeData, $exchangeDiscount
+            $exchangeData, $exchangeDiscount,
+            $loyaltyDiscount, $pointsToRedeem
         ) {
             $exchangeRequestId = null;
             if ($exchangeData && !empty($exchangeData['brand'])) {
@@ -117,6 +198,8 @@ class OrderController extends Controller
                 'subtotal'            => $subtotal,
                 'discount'            => $discount,
                 'exchange_discount'   => $exchangeDiscount,
+                'loyalty_discount'    => $loyaltyDiscount,
+                'loyalty_points_used' => $pointsToRedeem,
                 'shipping_charge'     => $shipping,
                 'tax'                 => 0,
                 'total'               => $total,
@@ -148,7 +231,7 @@ class OrderController extends Controller
                     'product_name'    => $item->product->name,
                     'variant_details' => implode(' | ', $variantParts) ?: null,
                     'price'           => $item->variant
-                        ? $item->variant->price
+                        ? ($item->variant->sale_price ?? $item->variant->price)
                         : $item->product->getCurrentPrice(),
                     'quantity'        => $item->quantity,
                     'subtotal'        => $item->getSubtotal(),
@@ -162,6 +245,17 @@ class OrderController extends Controller
             ]);
 
             if ($coupon) $coupon->increment('used_count');
+
+            // Deduct loyalty points inside transaction
+            if ($pointsToRedeem > 0) {
+                auth()->user()->addLoyaltyPoints(
+                    -$pointsToRedeem,
+                    'redeemed',
+                    "Redeemed for order #{$order->order_number}",
+                    $order->id
+                );
+            }
+
             Cart::where('user_id', auth()->id())->delete();
 
             return $order;
@@ -202,24 +296,29 @@ class OrderController extends Controller
         ], 201);
     }
 
-    // ── Cancel order ─────────────────────────────────────────────────────
-    public function cancel($number)
+    // ── Loyalty preview — calculate discount before placing order ─────────
+    public function loyaltyPreview(Request $request)
     {
-        $order = Order::where('user_id', auth()->id())
-            ->where('order_number', $number)->firstOrFail();
+        $request->validate(['points_to_redeem' => 'required|integer|min:1']);
 
-        if (!$order->canBeCancelled()) {
-            return response()->json(['message' => 'This order cannot be cancelled.'], 422);
-        }
+        $user        = auth()->user();
+        $cartItems   = Cart::with(['product','variant'])->where('user_id', $user->id)->get();
+        $subtotal    = $cartItems->sum(fn($i) => $i->getSubtotal());
+        $pointValue  = \App\Services\LoyaltyService::pointValue();
+        $maxPct      = (float) \App\Models\CrmSetting::get('loyalty_max_redemption', 10);
+        $requested   = min((int)$request->points_to_redeem, $user->loyalty_points);
+        $maxDiscount = $subtotal * ($maxPct / 100);
+        $discount    = min($requested * $pointValue, $maxDiscount);
+        $pointsUsed  = $discount > 0 ? (int) ceil($discount / $pointValue) : 0;
 
-        $order->update(['status' => 'cancelled']);
-        OrderStatusLog::create([
-            'order_id' => $order->id,
-            'status'   => 'cancelled',
-            'comment'  => 'Cancelled by customer.',
+        return response()->json([
+            'available_points'   => $user->loyalty_points,
+            'points_to_redeem'   => $pointsUsed,
+            'discount_amount'    => round($discount, 2),
+            'point_value'        => $pointValue,
+            'max_discount'       => round($maxDiscount, 2),
+            'max_redemption_pct' => $maxPct,
         ]);
-
-        return response()->json(['message' => 'Order cancelled.']);
     }
 
     // ── Verify Razorpay payment ──────────────────────────────────────────
@@ -274,7 +373,6 @@ class OrderController extends Controller
                 'free_above'     => $z->free_above ? (float) $z->free_above : null,
                 'estimated_days' => $z->estimated_days,
                 'states'         => $z->states ?? [],
-                // Mark metro cities zone for default selection
                 'is_metro'       => stripos($z->name, 'metro') !== false,
             ])
             ->sortByDesc('is_metro')
@@ -287,20 +385,22 @@ class OrderController extends Controller
     private function formatOrder(Order $order): array
     {
         return [
-            'id'               => $order->id,
-            'order_number'     => $order->order_number,
-            'status'           => $order->status,
-            'status_label'     => ucwords(str_replace('_', ' ', $order->status)),
-            'payment_method'   => $order->payment_method,
-            'payment_status'   => $order->payment_status,
-            'subtotal'         => (float) $order->subtotal,
-            'discount'         => (float) $order->discount,
-            'exchange_discount'=> (float) ($order->exchange_discount ?? 0),
-            'shipping_charge'  => (float) $order->shipping_charge,
-            'total'            => (float) $order->total,
-            'refund_amount'    => $order->refund_amount ? (float) $order->refund_amount : null,
-            'created_at'       => $order->created_at->toISOString(),
-            'items'            => $order->relationLoaded('items')
+            'id'                  => $order->id,
+            'order_number'        => $order->order_number,
+            'status'              => $order->status,
+            'status_label'        => ucwords(str_replace('_', ' ', $order->status)),
+            'payment_method'      => $order->payment_method,
+            'payment_status'      => $order->payment_status,
+            'subtotal'            => (float) $order->subtotal,
+            'discount'            => (float) $order->discount,
+            'exchange_discount'   => (float) ($order->exchange_discount ?? 0),
+            'loyalty_discount'    => (float) ($order->loyalty_discount ?? 0),
+            'loyalty_points_used' => (int)   ($order->loyalty_points_used ?? 0),
+            'shipping_charge'     => (float) $order->shipping_charge,
+            'total'               => (float) $order->total,
+            'refund_amount'       => $order->refund_amount ? (float) $order->refund_amount : null,
+            'created_at'          => $order->created_at->toISOString(),
+            'items'               => $order->relationLoaded('items')
                 ? $order->items->map(fn($item) => [
                     'id'              => $item->id,
                     'product_id'      => $item->product_id,
@@ -339,7 +439,6 @@ class OrderController extends Controller
             ])->values()
             : [];
 
-        // Exchange request — includes the product being purchased
         $ex = $order->exchangeRequest;
         $base['exchange_request'] = $ex ? [
             'brand'            => $ex->old_phone_brand,
@@ -350,7 +449,6 @@ class OrderController extends Controller
             'estimated_value'  => (float) $ex->estimated_value,
             'approved_value'   => $ex->approved_value ? (float) $ex->approved_value : null,
             'status'           => $ex->status,
-            // The product the exchange was applied to (new phone being purchased)
             'exchange_for_product' => $ex->product ? [
                 'name'      => $ex->product->name,
                 'price'     => (float) $ex->product->getCurrentPrice(),
@@ -359,7 +457,6 @@ class OrderController extends Controller
             ] : null,
         ] : null;
 
-        // Refund info
         $base['refund'] = $order->refunded_at ? [
             'amount'         => (float) $order->refund_amount,
             'reason'         => $order->refund_reason,
@@ -371,32 +468,25 @@ class OrderController extends Controller
     }
 
     public function claimRefund(Request $request, $number)
-{
-    $request->validate([
-        'reason' => 'required|string|max:1000'
-    ]);
+    {
+        $request->validate([
+            'reason' => 'required|string|max:1000'
+        ]);
 
-    $order = Order::where('order_number', $number)->first();
+        $order = Order::where('order_number', $number)->first();
 
-    if (!$order) {
-        return response()->json([
-            'message' => 'Order not found'
-        ], 404);
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        if ($order->status === 'requested') {
+            return response()->json(['message' => 'Refund already requested'], 400);
+        }
+
+        $order->status        = 'requested';
+        $order->refund_reason = $request->reason;
+        $order->save();
+
+        return response()->json(['message' => 'Refund request submitted successfully']);
     }
-
-    // prevent duplicate refund
-    if ($order->status === 'requested') {
-        return response()->json([
-            'message' => 'Refund already requested'
-        ], 400);
-    }
-
-    $order->status = 'requested';
-    $order->refund_reason = $request->reason;
-    $order->save();
-
-    return response()->json([
-        'message' => 'Refund request submitted successfully'
-    ]);
-}
 }

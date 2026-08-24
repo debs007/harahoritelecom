@@ -27,6 +27,7 @@ class ProductController extends Controller
             'price_asc'  => $query->orderBy('price'),
             'price_desc' => $query->orderByDesc('price'),
             'rating'     => $query->orderByDesc('avg_rating'),
+            'random'     => $query->inRandomOrder(),
             default      => $query->orderByDesc('is_featured')->latest(),
         };
 

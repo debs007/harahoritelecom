@@ -106,6 +106,15 @@
                         <span>−₹{{ number_format($order->exchange_discount) }}</span>
                     </div>
                     @endif
+                    @if($order->loyalty_discount > 0)
+                    <div class="flex justify-between text-yellow-600">
+                        <span class="flex items-center gap-1">
+                            🌟 Loyalty Points Redeemed
+                            <span class="text-xs text-gray-400 font-normal">({{ $order->loyalty_points_used }} pts)</span>
+                        </span>
+                        <span>−₹{{ number_format($order->loyalty_discount) }}</span>
+                    </div>
+                    @endif
                     <div class="flex justify-between text-gray-600">
                         <span>Shipping</span><span>₹{{ number_format($order->shipping_charge) }}</span>
                     </div>

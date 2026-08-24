@@ -5,8 +5,8 @@
     <div class="relative aspect-square bg-gray-50 overflow-hidden">
         <a href="{{ route('products.show', $product) }}">
             <img src="{{ $product->thumbnail ? Storage::url($product->thumbnail) : 'https://placehold.co/300x300/f3f4f6/a855f7?text=📱' }}"
-                 class="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                 alt="{{ $product->name }}" loading="lazy">
+     class="w-full h-full object-contain p-3 group-hover:scale-105 transition duration-300"
+     alt="{{ $product->name }}" loading="lazy">
         </a>
 
         {{-- Discount badge --}}

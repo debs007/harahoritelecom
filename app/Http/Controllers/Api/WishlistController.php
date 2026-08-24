@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -10,12 +11,27 @@ class WishlistController extends Controller
 {
     public function index()
     {
-        $items = auth()->user()->wishlists()
-            ->with(['product.brand', 'product.images', 'product.variants'])
-            ->latest()->get();
+        $items = Wishlist::with([
+                'product.brand',
+                'product.category',
+                'product.images',
+                'product.variants',
+                'product.exchangeOffer',
+            ])
+            ->where('user_id', auth()->id())
+            ->latest()
+            ->get();
 
-        $products = $items->map(fn($w) => new ProductResource($w->product));
-        return response()->json(['items' => $products, 'count' => $items->count()]);
+        // Filter out any rows where the product was deleted
+        $products = $items
+            ->filter(fn($w) => $w->product !== null)
+            ->map(fn($w) => new ProductResource($w->product))
+            ->values();
+
+        return response()->json([
+            'items' => $products,
+            'count' => $products->count(),
+        ]);
     }
 
     public function toggle($slug)
@@ -23,13 +39,17 @@ class WishlistController extends Controller
         $product = Product::where('slug', $slug)->firstOrFail();
 
         $existing = Wishlist::where('user_id', auth()->id())
-            ->where('product_id', $product->id)->first();
+            ->where('product_id', $product->id)
+            ->first();
 
         if ($existing) {
             $existing->delete();
             $inWishlist = false;
         } else {
-            Wishlist::create(['user_id' => auth()->id(), 'product_id' => $product->id]);
+            Wishlist::create([
+                'user_id'    => auth()->id(),
+                'product_id' => $product->id,
+            ]);
             $inWishlist = true;
         }
 

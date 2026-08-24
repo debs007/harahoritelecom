@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\HomeController;
 use App\Http\Controllers\Api\ExchangeController;
+use App\Http\Controllers\Api\ForgotPasswordController;
+//use App\Http\Controllers\Api\OrderController_cancel_method;
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 Route::post('/auth/register',         [AuthController::class, 'register']);
@@ -28,6 +30,11 @@ Route::get('/categories/{slug}/products',       [ProductController::class, 'byCa
 Route::get('/brands',                           [ProductController::class, 'brands']);
 Route::get('/brands/{slug}/products',           [ProductController::class, 'byBrand']);
 Route::get('/coupons/active',                   [ProductController::class, 'activeCoupons']);
+
+//forgot password
+    Route::post('/auth/forgot-password/send-otp',       [ForgotPasswordController::class, 'sendOtp']);
+    Route::post('/auth/forgot-password/verify-otp',     [ForgotPasswordController::class, 'verifyOtp']);
+    Route::post('/auth/forgot-password/reset',          [ForgotPasswordController::class, 'resetPassword']);
 
 // ── Auth required ─────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
@@ -62,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders',                           [OrderController::class, 'index']);
     Route::post('/orders',                          [OrderController::class, 'store']);
     Route::post('/orders/razorpay/verify',          [OrderController::class, 'verifyPayment']); // ← BEFORE {number}
+    Route::post('/orders/loyalty-preview',          [OrderController::class, 'loyaltyPreview']);
     Route::get('/shipping-zones',                   [OrderController::class, 'shippingZones']);
     Route::get('/orders/{number}',                  [OrderController::class, 'show']);
     Route::delete('/orders/{number}',               [OrderController::class, 'cancel']);
@@ -75,4 +83,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/exchange/{slug}',              [ExchangeController::class, 'getOffer']);
     Route::post('/exchange/estimate',           [ExchangeController::class, 'estimate']);
     Route::post('/exchange/verify-imei',        [ExchangeController::class, 'verifyImei']);
+    
+    
+    
+    //cancel apis
+    Route::post('/orders/{orderNumber}/cancel', [OrderController::class, 'cancel']);
 });

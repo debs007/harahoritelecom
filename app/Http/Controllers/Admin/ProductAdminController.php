@@ -327,18 +327,21 @@ class ProductAdminController extends Controller
 
     private function saveImage($file, string $folder, int $w, int $h): string
     {
-        $filename = uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
-        $path     = "{$folder}/{$filename}";
-
-        // Use Intervention Image v3 if available, else store original
-        if (class_exists(\Intervention\Image\Laravel\Facades\Image::class)) {
-            $img = \Intervention\Image\Laravel\Facades\Image::read($file)->cover($w, $h)->toWebp(85);
-            $path = "{$folder}/" . uniqid() . '_' . time() . '.webp';
+        $path = "{$folder}/" . uniqid() . '_' . time() . '.webp';
+    
+        try {
+            $img = \Intervention\Image\Facades\Image::make($file->getRealPath())
+                ->fit($w, $h)
+                ->encode('webp', 85);
+    
             Storage::disk('public')->put($path, $img);
-        } else {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Image save failed: ' . $e->getMessage());
+            $ext  = $file->getClientOriginalExtension() ?: 'jpg';
+            $path = "{$folder}/" . uniqid() . '_' . time() . '.' . $ext;
             Storage::disk('public')->put($path, file_get_contents($file->getRealPath()));
         }
-
+    
         return $path;
     }
 }

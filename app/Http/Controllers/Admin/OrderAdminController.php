@@ -86,6 +86,11 @@ class OrderAdminController extends Controller
             'updated_by' => auth()->id(),
         ]);
 
+        // Award loyalty points when order is delivered
+        if ($request->status === 'delivered') {
+            \App\Services\LoyaltyService::awardForOrder($order->fresh());
+        }
+
         $order->user->notify(new OrderStatusUpdatedNotification($order));
 
         return back()->with('success', 'Order status updated to "' . str_replace('_', ' ', $request->status) . '".');

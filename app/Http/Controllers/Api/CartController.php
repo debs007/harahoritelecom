@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Coupon;
+use App\Models\CrmLead;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -98,6 +99,29 @@ class CartController extends Controller
         }
 
         $count = Cart::where('user_id', auth()->id())->sum('quantity');
+
+        // ── Auto-create CRM lead when product added to cart ───────────────
+        try {
+            $user = auth()->user();
+            \App\Services\LoyaltyService::syncContactFromUser($user);
+            $contact = $user->fresh()->crmContact;
+            if ($contact) {
+                \App\Models\CrmLead::create([
+                    'crm_contact_id'      => $contact->id,
+                    'title'               => $product->name . ' — Cart Interest',
+                    'value'               => $product->getCurrentPrice(),
+                    'stage'               => 'new',
+                    'score'               => 20,
+                    'source'              => 'organic',
+                    'product_interest'    => $product->name,
+                    'expected_close_date' => now()->addDays(7)->toDateString(),
+                    'notes'               => 'Auto-created when user added product to cart.',
+                ]);
+            }
+        } catch (\Throwable) {
+            // Never block cart addition due to CRM errors
+        }
+
         return response()->json([
             'message' => 'Added to cart!',
             'count'   => (int) $count,

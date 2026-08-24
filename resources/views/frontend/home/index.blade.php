@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'MobileShop — Best Smartphones Online')
+@section('title', 'Harahori Telecom — Best Smartphones Online')
 
 @section('content')
 
@@ -18,6 +18,11 @@
                 </h1>
                 <p class="text-purple-100 text-lg mb-8">Top brands. Unbeatable prices. Lightning-fast delivery across India.</p>
                 <div class="flex flex-wrap gap-3">
+                     <a href="{{ asset('download/app.apk') }}" 
+       download
+       class="bg-green-400 text-green-900 font-black px-6 py-3 rounded-full hover:bg-green-300 transition shadow-lg">
+       ⬇ Download App
+    </a>
                     <a href="{{ route('products.index') }}" class="bg-yellow-400 text-yellow-900 font-black px-6 py-3 rounded-full hover:bg-yellow-300 transition shadow-lg">Shop Now →</a>
                     <a href="{{ route('products.index', ['sort'=>'newest']) }}" class="border-2 border-white/50 text-white font-semibold px-6 py-3 rounded-full hover:bg-white/10 transition">New Arrivals</a>
                 </div>
@@ -32,10 +37,11 @@
             <div class="hidden md:grid grid-cols-2 gap-3">
                 @foreach($bannerProducts->take(4) as $bp)
                 <a href="{{ route('products.show', $bp) }}" class="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-3 hover:bg-white/25 transition group">
-                    <div class="aspect-square rounded-xl overflow-hidden bg-white/10 mb-2">
-                        <img src="{{ $bp->thumbnail ? Storage::url($bp->thumbnail) : 'https://placehold.co/200x200/7c3aed/white?text=📱' }}"
-                             class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="{{ $bp->name }}">
-                    </div>
+                        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center mb-2">
+                            <img src="{{ $bp->thumbnail ? Storage::url($bp->thumbnail) : 'https://placehold.co/200x200/7c3aed/white?text=📱' }}"
+                                 class="w-full h-full object-contain p-3 group-hover:scale-105 transition duration-300"
+                                 alt="{{ $bp->name }}">
+                        </div>
                     <p class="text-white text-xs font-bold truncate">{{ $bp->name }}</p>
                     <p class="text-yellow-300 text-sm font-black">₹{{ number_format($bp->getCurrentPrice()) }}</p>
                 </a>
@@ -65,7 +71,7 @@
         @php $catColors = ['from-violet-500 to-purple-600','from-fuchsia-500 to-pink-600','from-orange-500 to-amber-500','from-cyan-500 to-blue-600','from-green-500 to-emerald-600','from-red-500 to-rose-600']; @endphp
         @foreach($categories as $i => $cat)
         <a href="{{ route('products.category', $cat) }}" class="flex-shrink-0 group text-center">
-            <div class="w-20 h-20 rounded-2xl shadow-md group-hover:scale-105 transition mb-2 overflow-hidden border-2 border-white ring-1 ring-gray-100">
+            <div class="w-14 h-14 rounded-xl shadow-sm group-hover:scale-105 transition mb-2 overflow-hidden border border-gray-200">
                 @if($cat->image)
                     <img src="{{ Storage::url($cat->image) }}"
                          alt="{{ $cat->name }}"
@@ -76,7 +82,7 @@
                     </div>
                 @endif
             </div>
-            <p class="text-xs font-bold text-gray-700 w-20 truncate">{{ $cat->name }}</p>
+            <p class="text-xs font-bold text-gray-700 w-14 truncate">{{ $cat->name }}</p>
         </a>
         @endforeach
     </div>

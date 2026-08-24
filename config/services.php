@@ -31,4 +31,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'aisensy' => [
+        'campaign_key' => env('AISENSY_CAMPAIGN_KEY'),
+        'api_password' => env('AISENSY_API_PASSWORD'),
+    ],
+
 ];

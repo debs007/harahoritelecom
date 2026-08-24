@@ -21,6 +21,16 @@ Route::get('/category/{category}', [ProductController::class, 'byCategory'])->na
 Route::get('/brand/{brand}', [ProductController::class, 'byBrand'])->name('products.brand');
 Route::get('/search', [ProductController::class, 'search'])->name('products.search');
 
+Route::get('/privacy',function(){
+    return view('frontend/legal/privacy-policy');
+});
+Route::get('/terms',function(){
+    return view('frontend/legal/terms');
+});
+Route::get('/delete',function(){
+    return view('frontend/legal/delete-account');
+});
+
 // ── Cart (works guest + logged-in) ───────────────────────────
 Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/',              [CartController::class, 'index'])->name('index');
@@ -85,3 +95,6 @@ Route::middleware('auth')->group(function () {
 
 // Load admin routes
 require __DIR__.'/admin.php';
+
+// Load CRM routes
+require __DIR__.'/crm.php';

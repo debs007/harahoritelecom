@@ -65,10 +65,12 @@
 
             <!-- Logo -->
             <a href="{{ route('home') }}" class="flex items-center gap-2 flex-shrink-0">
-                <div class="w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-xl flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2H7zm5 17a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                <div class="w-14 h-14 rounded-xl overflow-hidden">
+                    <img src="{{ asset('images/harahori.jpg') }}"
+                         class="w-full h-full object-cover"
+                         alt="Logo">
                 </div>
-                <span class="text-xl font-black text-gray-900">Harahori<span class="text-violet-600">Telecom</span></span>
+                <span class="text-xl font-black text-gray-900">Harahori <span class="text-violet-600">Telecom</span></span>
             </a>
 
             <!-- Desktop Search -->
@@ -197,9 +199,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
             <div>
                 <div class="flex items-center gap-2 mb-4">
-                    <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V4a2 2 0 00-2-2H7zm5 17a1 1 0 110-2 1 1 0 010 2z"/></svg>
-                    </div>
+                    <div class="w-14 h-14 rounded-xl overflow-hidden">
+                    <img src="{{ asset('images/harahori.jpg') }}"
+                         class="w-full h-full object-cover"
+                         alt="Logo">
+                </div>
                     <span class="text-white font-black text-lg">Harahori Telecom</span>
                 </div>
                 <p class="text-sm leading-relaxed">Your trusted destination for the latest smartphones. Genuine products, fast delivery, easy returns.</p>

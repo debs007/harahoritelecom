@@ -166,10 +166,39 @@ class ProductAdminController extends Controller
         return back()->with('success', 'Variant added.');
     }
 
+    public function updateVariant(Request $request, ProductVariant $variant)
+    {
+        // Treat an empty string the same as "no sale price" before validating,
+        // since JS sends '' when the field is cleared rather than omitting it.
+        if ($request->input('sale_price') === '') {
+            $request->merge(['sale_price' => null]);
+        }
+
+        $data = $request->validate([
+            'ram'                 => 'required|string|max:50',
+            'storage'             => 'required|string|max:50',
+            'price'               => 'required|numeric|min:0',
+            'sale_price'          => 'nullable|numeric|min:0|lte:price',
+            'stock'               => 'required|integer|min:0',
+            'sku'                 => 'required|string|unique:product_variants,sku,' . $variant->id,
+            'available_colors'    => 'nullable|array',
+            'available_colors.*'  => 'string|max:50',
+        ]);
+
+        $data['available_colors'] = array_values(array_filter($data['available_colors'] ?? []));
+
+        $variant->update($data);
+
+        return response()->json([
+            'message' => 'Variant updated.',
+            'variant' => $variant->fresh(),
+        ]);
+    }
+
     public function deleteVariant(ProductVariant $variant)
     {
         $variant->delete();
-        return back()->with('success', 'Variant deleted.');
+        return response()->json(['message' => 'Variant deleted.']);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────

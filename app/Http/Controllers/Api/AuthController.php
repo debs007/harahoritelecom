@@ -16,13 +16,13 @@ class AuthController extends Controller
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
-            'phone'    => 'nullable|string|max:20',
+            'phone'    => 'required|string|max:20',
         ]);
         $user = User::create([
             'name'     => $data['name'],
             'email'    => $data['email'],
             'password' => Hash::make($data['password']),
-            'phone'    => $data['phone'] ?? null,
+            'phone'    => $data['phone'],
             'role'     => 'customer',
         ]);
         $token = $user->createToken('mobile-app')->plainTextToken;
@@ -136,7 +136,7 @@ class AuthController extends Controller
             'email'          => $user->email,
             'phone'          => $user->phone,
             'role'           => $user->role,
-            'avatar'         => null,
+            'avatar'         => $user->avatar ? url('storage/' . $user->avatar) : null,
             'loyalty_points' => (int) ($user->loyalty_points ?? 0),
         ];
     }

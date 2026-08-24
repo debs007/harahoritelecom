@@ -27,6 +27,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::post('products/{product}/images',          [ProductAdminController::class, 'uploadImages'])->name('products.images.upload');
     Route::delete('products/images/{image}',          [ProductAdminController::class, 'deleteImage'])->name('products.images.delete');
     Route::post('products/{product}/variants',        [ProductAdminController::class, 'storeVariant'])->name('products.variants.store');
+    Route::patch('products/variants/{variant}',        [ProductAdminController::class, 'updateVariant'])->name('products.variants.update');
     Route::delete('products/variants/{variant}',      [ProductAdminController::class, 'deleteVariant'])->name('products.variants.delete');
 
     // Categories & Brands
